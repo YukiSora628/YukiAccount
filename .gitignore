@@ -1,4 +1,5 @@
 .superpowers/
+.android/
 .gradle/
 build/
 app/build/

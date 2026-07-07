@@ -2,14 +2,18 @@ package com.yukisora.yukiaccount.data.repository
 
 import androidx.room.withTransaction
 import com.yukisora.yukiaccount.data.db.YukiAccountDatabase
+import com.yukisora.yukiaccount.data.model.AccountEntity
 import com.yukisora.yukiaccount.data.model.InvestmentAssetEntity
 import com.yukisora.yukiaccount.data.model.ValuationSnapshotEntity
 import com.yukisora.yukiaccount.data.model.toDomain
 import com.yukisora.yukiaccount.data.model.toEntity
 import com.yukisora.yukiaccount.domain.model.Account
+import com.yukisora.yukiaccount.domain.model.AccountType
 import com.yukisora.yukiaccount.domain.model.InvestmentAsset
+import com.yukisora.yukiaccount.domain.model.InvestmentType
 import com.yukisora.yukiaccount.domain.model.Money
 import com.yukisora.yukiaccount.domain.model.Transaction
+import com.yukisora.yukiaccount.domain.model.TransactionType
 import com.yukisora.yukiaccount.domain.service.LedgerCalculator
 import com.yukisora.yukiaccount.domain.service.RecurringGenerator
 import java.time.LocalDate
@@ -23,6 +27,18 @@ class AccountingRepository(
     private val database: YukiAccountDatabase,
     private val clock: () -> Long = { System.currentTimeMillis() },
 ) {
+    suspend fun ensureSeedData() {
+        database.withTransaction {
+            val now = clock()
+            if (database.accountDao().activeAccounts().isEmpty()) {
+                defaultAccounts(now).forEach { database.accountDao().upsert(it) }
+            }
+            if (database.investmentDao().activeInvestments().isEmpty()) {
+                defaultInvestments(now).forEach { database.investmentDao().upsertAsset(it) }
+            }
+        }
+    }
+
     fun observeDashboard(): Flow<DashboardSummary> =
         combine(
             database.accountDao().observeActiveAccounts().map { entities -> entities.map { it.toDomain() } },
@@ -49,6 +65,47 @@ class AccountingRepository(
             addTransactionInCurrentTransaction(transaction)
         }
     }
+
+    suspend fun addExpense(amount: Money, accountId: String, note: String) {
+        addTransaction(
+            Transaction(
+                id = UUID.randomUUID().toString(),
+                type = TransactionType.EXPENSE,
+                amount = amount,
+                accountId = accountId,
+                date = LocalDate.now(),
+                note = note,
+            )
+        )
+    }
+
+    suspend fun addIncome(amount: Money, accountId: String, note: String) {
+        addTransaction(
+            Transaction(
+                id = UUID.randomUUID().toString(),
+                type = TransactionType.INCOME,
+                amount = amount,
+                accountId = accountId,
+                date = LocalDate.now(),
+                note = note,
+            )
+        )
+    }
+
+    suspend fun addInvestmentBuy(amount: Money, accountId: String, investmentAssetId: String, note: String) {
+        addTransaction(
+            Transaction(
+                id = UUID.randomUUID().toString(),
+                type = TransactionType.INVESTMENT_BUY,
+                amount = amount,
+                accountId = accountId,
+                investmentAssetId = investmentAssetId,
+                date = LocalDate.now(),
+                note = note,
+            )
+        )
+    }
+
 
     suspend fun updateInvestmentValue(investmentAssetId: String, value: Money, date: LocalDate = LocalDate.now()) {
         database.withTransaction {
@@ -112,7 +169,7 @@ class AccountingRepository(
             )
         }
         ledger.investments.forEach { investment ->
-            val original = investmentEntities.first { it.id == investment.id }
+            val original = investmentEntities.firstOrNull { it.id == investment.id } ?: return@forEach
             database.investmentDao().updateAsset(
                 investment.toEntity(now).copy(createdAt = original.createdAt)
             )
@@ -125,3 +182,69 @@ data class DashboardSummary(
     val monthlyConsumption: Money,
     val netWorth: Money,
 )
+
+private fun defaultAccounts(now: Long): List<AccountEntity> =
+    listOf(
+        AccountEntity(
+            id = "cash",
+            name = "现金",
+            type = AccountType.CASH,
+            balanceCents = 0,
+            creditLimitCents = null,
+            billingDay = null,
+            repaymentDay = null,
+            isArchived = false,
+            createdAt = now,
+            updatedAt = now,
+        ),
+        AccountEntity(
+            id = "bank",
+            name = "银行卡",
+            type = AccountType.BANK_CARD,
+            balanceCents = 0,
+            creditLimitCents = null,
+            billingDay = null,
+            repaymentDay = null,
+            isArchived = false,
+            createdAt = now,
+            updatedAt = now,
+        ),
+        AccountEntity(
+            id = "credit-card",
+            name = "信用卡",
+            type = AccountType.CREDIT_CARD,
+            balanceCents = 0,
+            creditLimitCents = null,
+            billingDay = 1,
+            repaymentDay = 20,
+            isArchived = false,
+            createdAt = now,
+            updatedAt = now,
+        ),
+    )
+
+private fun defaultInvestments(now: Long): List<InvestmentAssetEntity> =
+    listOf(
+        InvestmentAssetEntity(
+            id = "fund",
+            name = "基金",
+            type = InvestmentType.FUND,
+            principalCents = 0,
+            currentValueCents = 0,
+            lastValuationDate = null,
+            isArchived = false,
+            createdAt = now,
+            updatedAt = now,
+        ),
+        InvestmentAssetEntity(
+            id = "gold",
+            name = "黄金",
+            type = InvestmentType.GOLD,
+            principalCents = 0,
+            currentValueCents = 0,
+            lastValuationDate = null,
+            isArchived = false,
+            createdAt = now,
+            updatedAt = now,
+        ),
+    )

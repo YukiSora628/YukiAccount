@@ -32,6 +32,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -60,9 +62,9 @@ private enum class EntryDialog {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun YukiAccountApp() {
+fun YukiAccountApp(viewModel: AppViewModel = viewModel()) {
     var selectedTab by remember { mutableStateOf(AppTab.DASHBOARD) }
-    var state by remember { mutableStateOf(AppState()) }
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
     var dialog by remember { mutableStateOf<EntryDialog?>(null) }
 
     Scaffold(
@@ -99,7 +101,7 @@ fun YukiAccountApp() {
             confirmText = "保存支出",
             onDismiss = { dialog = null },
             onConfirm = { amount, account, note ->
-                state = state.addExpense(amount, account.id, note)
+                viewModel.addExpense(amount, account, note)
                 dialog = null
             },
         )
@@ -109,7 +111,7 @@ fun YukiAccountApp() {
             confirmText = "保存收入",
             onDismiss = { dialog = null },
             onConfirm = { amount, account, note ->
-                state = state.addIncome(amount, account.id, note)
+                viewModel.addIncome(amount, account, note)
                 dialog = null
             },
         )
@@ -118,7 +120,7 @@ fun YukiAccountApp() {
             investments = state.investments,
             onDismiss = { dialog = null },
             onConfirm = { amount, account, investment, note ->
-                state = state.addInvestmentBuy(amount, account.id, investment.id, note)
+                viewModel.addInvestmentBuy(amount, account, investment, note)
                 dialog = null
             },
         )
@@ -126,7 +128,7 @@ fun YukiAccountApp() {
             investments = state.investments,
             onDismiss = { dialog = null },
             onConfirm = { investment, value ->
-                state = state.updateInvestmentValue(investment.id, value)
+                viewModel.updateInvestmentValue(investment, value)
                 dialog = null
             },
         )
@@ -136,7 +138,7 @@ fun YukiAccountApp() {
 
 @Composable
 private fun DashboardScreen(
-    state: AppState,
+    state: AccountingUiState,
     padding: PaddingValues,
     onOpenDialog: (EntryDialog) -> Unit,
 ) {
@@ -158,12 +160,12 @@ private fun DashboardScreen(
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 SummaryCard(
                     title = "本月真实消费",
-                    value = state.monthlyConsumption.formatCurrency(),
+                    value = state.dashboard.monthlyConsumption.formatCurrency(),
                     modifier = Modifier.weight(1f),
                 )
                 SummaryCard(
                     title = "当前净资产",
-                    value = state.netWorth.formatCurrency(),
+                    value = state.dashboard.netWorth.formatCurrency(),
                     modifier = Modifier.weight(1f),
                 )
             }
@@ -174,20 +176,24 @@ private fun DashboardScreen(
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(
                         onClick = { onOpenDialog(EntryDialog.EXPENSE) },
+                        enabled = state.accounts.isNotEmpty(),
                         modifier = Modifier.weight(1f),
                     ) { Text("记支出") }
                     Button(
                         onClick = { onOpenDialog(EntryDialog.INCOME) },
+                        enabled = state.accounts.any { it.type != AccountType.CREDIT_CARD },
                         modifier = Modifier.weight(1f),
                     ) { Text("记收入") }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(
                         onClick = { onOpenDialog(EntryDialog.INVESTMENT_BUY) },
+                        enabled = state.accounts.any { it.type != AccountType.CREDIT_CARD } && state.investments.isNotEmpty(),
                         modifier = Modifier.weight(1f),
                     ) { Text("投资买入") }
                     Button(
                         onClick = { onOpenDialog(EntryDialog.VALUATION) },
+                        enabled = state.investments.isNotEmpty(),
                         modifier = Modifier.weight(1f),
                     ) { Text("更新市值") }
                 }
@@ -327,6 +333,10 @@ private fun MoneyEntryDialog(
     onDismiss: () -> Unit,
     onConfirm: (Money, Account, String) -> Unit,
 ) {
+    if (accounts.isEmpty()) {
+        SimpleMessageDialog(title = title, message = "暂无可用账户", onDismiss = onDismiss)
+        return
+    }
     var amountText by remember { mutableStateOf("") }
     var note by remember { mutableStateOf("") }
     var selectedAccount by remember(accounts) { mutableStateOf(accounts.first()) }
@@ -375,6 +385,10 @@ private fun InvestmentBuyDialog(
     onDismiss: () -> Unit,
     onConfirm: (Money, Account, InvestmentAsset, String) -> Unit,
 ) {
+    if (accounts.isEmpty() || investments.isEmpty()) {
+        SimpleMessageDialog(title = "投资买入", message = "需要至少一个资产账户和一个投资资产", onDismiss = onDismiss)
+        return
+    }
     var amountText by remember { mutableStateOf("") }
     var note by remember { mutableStateOf("") }
     var selectedAccount by remember(accounts) { mutableStateOf(accounts.first()) }
@@ -412,6 +426,10 @@ private fun ValuationDialog(
     onDismiss: () -> Unit,
     onConfirm: (InvestmentAsset, Money) -> Unit,
 ) {
+    if (investments.isEmpty()) {
+        SimpleMessageDialog(title = "更新投资市值", message = "暂无投资资产", onDismiss = onDismiss)
+        return
+    }
     var amountText by remember { mutableStateOf("") }
     var selectedInvestment by remember(investments) { mutableStateOf(investments.first()) }
     val amount = amountText.toMoneyOrNull()
@@ -436,6 +454,18 @@ private fun ValuationDialog(
             ) { Text("更新") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
+    )
+}
+
+@Composable
+private fun SimpleMessageDialog(title: String, message: String, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = { Text(message) },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("知道了") }
+        },
     )
 }
 

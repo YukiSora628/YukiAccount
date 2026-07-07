@@ -1,0 +1,80 @@
+package com.yukisora.yukiaccount.ui
+
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import com.yukisora.yukiaccount.data.db.YukiAccountDatabase
+import com.yukisora.yukiaccount.data.repository.AccountingRepository
+import com.yukisora.yukiaccount.data.repository.DashboardSummary
+import com.yukisora.yukiaccount.domain.model.Account
+import com.yukisora.yukiaccount.domain.model.InvestmentAsset
+import com.yukisora.yukiaccount.domain.model.Money
+import com.yukisora.yukiaccount.domain.model.Transaction
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+
+class AppViewModel(application: Application) : AndroidViewModel(application) {
+    private val repository = AccountingRepository(
+        YukiAccountDatabase.getInstance(application)
+    )
+
+    val uiState: StateFlow<AccountingUiState> =
+        combine(
+            repository.observeDashboard(),
+            repository.observeTransactions(),
+            repository.observeAccounts(),
+            repository.observeInvestments(),
+        ) { dashboard, transactions, accounts, investments ->
+            AccountingUiState(
+                dashboard = dashboard,
+                transactions = transactions,
+                accounts = accounts,
+                investments = investments,
+            )
+        }.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = AccountingUiState(),
+        )
+
+    init {
+        viewModelScope.launch {
+            repository.ensureSeedData()
+            repository.generateRecurringTransactions()
+        }
+    }
+
+    fun addExpense(amount: Money, account: Account, note: String) {
+        viewModelScope.launch {
+            repository.addExpense(amount, account.id, note)
+        }
+    }
+
+    fun addIncome(amount: Money, account: Account, note: String) {
+        viewModelScope.launch {
+            repository.addIncome(amount, account.id, note)
+        }
+    }
+
+    fun addInvestmentBuy(amount: Money, account: Account, investment: InvestmentAsset, note: String) {
+        viewModelScope.launch {
+            repository.addInvestmentBuy(amount, account.id, investment.id, note)
+        }
+    }
+
+    fun updateInvestmentValue(investment: InvestmentAsset, value: Money) {
+        viewModelScope.launch {
+            repository.updateInvestmentValue(investment.id, value)
+        }
+    }
+}
+
+data class AccountingUiState(
+    val dashboard: DashboardSummary = DashboardSummary(Money.ZERO, Money.ZERO),
+    val transactions: List<Transaction> = emptyList(),
+    val accounts: List<Account> = emptyList(),
+    val investments: List<InvestmentAsset> = emptyList(),
+)

@@ -163,11 +163,13 @@ fun YukiAccountApp(viewModel: AppViewModel = viewModel()) {
                 accounts = state.accounts,
                 padding = padding,
                 onCreateAccount = { dialog = EntryDialog.ACCOUNT },
+                onArchiveAccount = viewModel::archiveAccount,
             )
             AppTab.INVESTMENTS -> InvestmentListScreen(
                 investments = state.investments,
                 padding = padding,
                 onCreateInvestment = { dialog = EntryDialog.INVESTMENT_ASSET },
+                onArchiveInvestment = viewModel::archiveInvestmentAsset,
             )
             AppTab.SETTINGS -> SettingsScreen(
                 padding = padding,
@@ -560,6 +562,7 @@ private fun AccountListScreen(
     accounts: List<Account>,
     padding: PaddingValues,
     onCreateAccount: () -> Unit,
+    onArchiveAccount: (Account) -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -575,14 +578,25 @@ private fun AccountListScreen(
         Spacer(Modifier.height(16.dp))
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             accounts.forEach { account ->
-                InfoCard(
-                    title = account.name,
-                    body = if (account.type == AccountType.CREDIT_CARD) {
-                        "未还负债 ${account.balance.formatCurrency()}"
-                    } else {
-                        "余额 ${account.balance.formatCurrency()}"
-                    },
-                )
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(account.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                        Text(
+                            if (account.type == AccountType.CREDIT_CARD) {
+                                "未还负债 ${account.balance.formatCurrency()}"
+                            } else {
+                                "余额 ${account.balance.formatCurrency()}"
+                            },
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        Button(onClick = { onArchiveAccount(account) }, modifier = Modifier.fillMaxWidth()) {
+                            Text("归档账户")
+                        }
+                    }
+                }
             }
         }
     }
@@ -593,6 +607,7 @@ private fun InvestmentListScreen(
     investments: List<InvestmentAsset>,
     padding: PaddingValues,
     onCreateInvestment: () -> Unit,
+    onArchiveInvestment: (InvestmentAsset) -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -609,10 +624,21 @@ private fun InvestmentListScreen(
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             investments.forEach { investment ->
                 val gainLoss = LedgerCalculator.investmentGainLoss(investment)
-                InfoCard(
-                    title = investment.name,
-                    body = "本金 ${investment.principal.formatCurrency()} / 市值 ${investment.currentValue.formatCurrency()} / 浮盈浮亏 ${gainLoss.formatCurrency()}",
-                )
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(investment.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                        Text(
+                            "本金 ${investment.principal.formatCurrency()} / 市值 ${investment.currentValue.formatCurrency()} / 浮盈浮亏 ${gainLoss.formatCurrency()}",
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        Button(onClick = { onArchiveInvestment(investment) }, modifier = Modifier.fillMaxWidth()) {
+                            Text("归档投资资产")
+                        }
+                    }
+                }
             }
         }
     }

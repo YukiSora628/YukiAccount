@@ -35,4 +35,7 @@ object AccountFactory {
             billingDay = billingDay,
             repaymentDay = repaymentDay,
         )
+
+    fun archive(account: Account): Account =
+        account.copy(isArchived = true)
 }

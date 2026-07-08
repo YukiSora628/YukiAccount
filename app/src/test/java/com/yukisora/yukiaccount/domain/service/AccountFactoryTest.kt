@@ -43,4 +43,27 @@ class AccountFactoryTest {
         assertEquals(8, account.billingDay)
         assertEquals(28, account.repaymentDay)
     }
+
+    @Test
+    fun archiveKeepsAccountValuesAndMarksArchived() {
+        val account = AccountFactory.creditCard(
+            id = "cmb-card",
+            name = "card",
+            unpaidBalance = Money.cents(2_000),
+            creditLimit = Money.cents(50_000),
+            billingDay = 8,
+            repaymentDay = 28,
+        )
+
+        val archived = AccountFactory.archive(account)
+
+        assertEquals(account.id, archived.id)
+        assertEquals(account.name, archived.name)
+        assertEquals(account.type, archived.type)
+        assertEquals(account.balance, archived.balance)
+        assertEquals(account.creditLimit, archived.creditLimit)
+        assertEquals(account.billingDay, archived.billingDay)
+        assertEquals(account.repaymentDay, archived.repaymentDay)
+        assertEquals(true, archived.isArchived)
+    }
 }

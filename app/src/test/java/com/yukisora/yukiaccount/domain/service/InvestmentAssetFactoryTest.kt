@@ -27,4 +27,26 @@ class InvestmentAssetFactoryTest {
         assertEquals(LocalDate.of(2026, 7, 8), asset.lastValuationDate)
         assertFalse(asset.isArchived)
     }
+
+    @Test
+    fun archiveKeepsInvestmentValuesAndMarksArchived() {
+        val asset = InvestmentAssetFactory.asset(
+            id = "wealth",
+            name = "wealth",
+            type = InvestmentType.WEALTH_MANAGEMENT,
+            principal = Money.cents(50_000),
+            currentValue = Money.cents(51_200),
+            valuationDate = LocalDate.of(2026, 7, 8),
+        )
+
+        val archived = InvestmentAssetFactory.archive(asset)
+
+        assertEquals(asset.id, archived.id)
+        assertEquals(asset.name, archived.name)
+        assertEquals(asset.type, archived.type)
+        assertEquals(asset.principal, archived.principal)
+        assertEquals(asset.currentValue, archived.currentValue)
+        assertEquals(asset.lastValuationDate, archived.lastValuationDate)
+        assertEquals(true, archived.isArchived)
+    }
 }

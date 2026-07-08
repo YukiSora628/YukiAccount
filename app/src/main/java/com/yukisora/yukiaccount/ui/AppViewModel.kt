@@ -93,6 +93,18 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun archiveAccount(account: Account) {
+        viewModelScope.launch {
+            repository.archiveAccount(account.id)
+        }
+    }
+
+    fun archiveInvestmentAsset(investment: InvestmentAsset) {
+        viewModelScope.launch {
+            repository.archiveInvestmentAsset(investment.id)
+        }
+    }
+
     fun addExpense(amount: Money, account: Account, category: Category?, note: String) {
         viewModelScope.launch {
             repository.addExpense(amount, account.id, category?.id, note)

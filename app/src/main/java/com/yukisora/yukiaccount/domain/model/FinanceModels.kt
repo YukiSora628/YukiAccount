@@ -45,6 +45,15 @@ enum class TransactionType {
     INVESTMENT_BUY,
 }
 
+data class Category(
+    val id: String,
+    val name: String,
+    val type: String,
+    val isFixedExpense: Boolean,
+    val sortOrder: Int,
+    val isArchived: Boolean = false,
+)
+
 data class Transaction(
     val id: String,
     val type: TransactionType,

@@ -1,6 +1,7 @@
 package com.yukisora.yukiaccount.data.model
 
 import com.yukisora.yukiaccount.domain.model.Account
+import com.yukisora.yukiaccount.domain.model.Category
 import com.yukisora.yukiaccount.domain.model.InvestmentAsset
 import com.yukisora.yukiaccount.domain.model.Money
 import com.yukisora.yukiaccount.domain.model.RecurringRule
@@ -31,6 +32,16 @@ fun Account.toEntity(now: Long): AccountEntity =
         isArchived = isArchived,
         createdAt = now,
         updatedAt = now,
+    )
+
+fun CategoryEntity.toDomain(): Category =
+    Category(
+        id = id,
+        name = name,
+        type = type,
+        isFixedExpense = isFixedExpense,
+        sortOrder = sortOrder,
+        isArchived = isArchived,
     )
 
 fun InvestmentAssetEntity.toDomain(): InvestmentAsset =

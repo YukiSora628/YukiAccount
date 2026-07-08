@@ -13,6 +13,7 @@ import com.yukisora.yukiaccount.data.model.toDomain
 import com.yukisora.yukiaccount.data.model.toEntity
 import com.yukisora.yukiaccount.domain.model.Account
 import com.yukisora.yukiaccount.domain.model.AccountType
+import com.yukisora.yukiaccount.domain.model.Category
 import com.yukisora.yukiaccount.domain.model.InvestmentAsset
 import com.yukisora.yukiaccount.domain.model.InvestmentType
 import com.yukisora.yukiaccount.domain.model.Money
@@ -83,6 +84,9 @@ class AccountingRepository(
 
     fun observeAccounts(): Flow<List<Account>> =
         database.accountDao().observeActiveAccounts().map { entities -> entities.map { it.toDomain() } }
+
+    fun observeCategories(): Flow<List<Category>> =
+        database.categoryDao().observeActiveCategories().map { entities -> entities.map { it.toDomain() } }
 
     fun observeInvestments(): Flow<List<InvestmentAsset>> =
         database.investmentDao().observeActiveInvestments().map { entities -> entities.map { it.toDomain() } }

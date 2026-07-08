@@ -9,6 +9,7 @@ import com.yukisora.yukiaccount.data.repository.AccountingRepository
 import com.yukisora.yukiaccount.data.repository.DashboardSummary
 import com.yukisora.yukiaccount.domain.model.Account
 import com.yukisora.yukiaccount.domain.model.AccountType
+import com.yukisora.yukiaccount.domain.model.Category
 import com.yukisora.yukiaccount.domain.model.InvestmentAsset
 import com.yukisora.yukiaccount.domain.model.InvestmentType
 import com.yukisora.yukiaccount.domain.model.Money
@@ -45,9 +46,16 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                     recurringGenerationCount = recurringTransactionIds.size,
                 )
             },
-            repository.observeRecurringRules(),
-        ) { state, recurringRules ->
-            state.copy(recurringRules = recurringRules)
+            repository.observeCategories(),
+        ) { state, categories ->
+            state.copy(categories = categories)
+        }.let { baseState ->
+            combine(
+                baseState,
+                repository.observeRecurringRules(),
+            ) { state, recurringRules ->
+                state.copy(recurringRules = recurringRules)
+            }
         }.stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
@@ -178,6 +186,7 @@ data class AccountingUiState(
     ),
     val transactions: List<Transaction> = emptyList(),
     val accounts: List<Account> = emptyList(),
+    val categories: List<Category> = emptyList(),
     val investments: List<InvestmentAsset> = emptyList(),
     val recurringRules: List<RecurringRule> = emptyList(),
     val recurringGenerationCount: Int = 0,

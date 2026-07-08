@@ -20,6 +20,7 @@ import com.yukisora.yukiaccount.domain.model.RecurringFrequency
 import com.yukisora.yukiaccount.domain.model.Transaction
 import com.yukisora.yukiaccount.domain.model.TransactionType
 import com.yukisora.yukiaccount.domain.service.AccountFactory
+import com.yukisora.yukiaccount.domain.service.InvestmentAssetFactory
 import com.yukisora.yukiaccount.domain.service.LedgerCalculator
 import com.yukisora.yukiaccount.domain.service.RecurringGenerator
 import com.yukisora.yukiaccount.domain.service.RecurringRuleFactory
@@ -84,6 +85,26 @@ class AccountingRepository(
 
     fun observeInvestments(): Flow<List<InvestmentAsset>> =
         database.investmentDao().observeActiveInvestments().map { entities -> entities.map { it.toDomain() } }
+
+    suspend fun addInvestmentAsset(
+        name: String,
+        type: InvestmentType,
+        principal: Money,
+        currentValue: Money,
+        valuationDate: LocalDate? = LocalDate.now(),
+    ) {
+        val now = clock()
+        database.investmentDao().upsertAsset(
+            InvestmentAssetFactory.asset(
+                id = UUID.randomUUID().toString(),
+                name = name,
+                type = type,
+                principal = principal,
+                currentValue = currentValue,
+                valuationDate = valuationDate,
+            ).toEntity(now)
+        )
+    }
 
     suspend fun addAssetAccount(name: String, type: AccountType, balance: Money) {
         val now = clock()

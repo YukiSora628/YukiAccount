@@ -10,6 +10,7 @@ import com.yukisora.yukiaccount.data.repository.DashboardSummary
 import com.yukisora.yukiaccount.domain.model.Account
 import com.yukisora.yukiaccount.domain.model.AccountType
 import com.yukisora.yukiaccount.domain.model.InvestmentAsset
+import com.yukisora.yukiaccount.domain.model.InvestmentType
 import com.yukisora.yukiaccount.domain.model.Money
 import com.yukisora.yukiaccount.domain.model.RecurringFrequency
 import com.yukisora.yukiaccount.domain.model.Transaction
@@ -65,6 +66,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     ) {
         viewModelScope.launch {
             repository.addCreditCardAccount(name, unpaidBalance, creditLimit, billingDay, repaymentDay)
+        }
+    }
+
+    fun addInvestmentAsset(name: String, type: InvestmentType, principal: Money, currentValue: Money) {
+        viewModelScope.launch {
+            repository.addInvestmentAsset(name, type, principal, currentValue)
         }
     }
 

@@ -44,6 +44,7 @@ import com.yukisora.yukiaccount.data.backup.BackupImportResult
 import com.yukisora.yukiaccount.domain.model.Account
 import com.yukisora.yukiaccount.domain.model.AccountType
 import com.yukisora.yukiaccount.domain.model.InvestmentAsset
+import com.yukisora.yukiaccount.domain.model.InvestmentType
 import com.yukisora.yukiaccount.domain.model.Money
 import com.yukisora.yukiaccount.domain.model.RecurringFrequency
 import com.yukisora.yukiaccount.domain.model.Transaction
@@ -70,6 +71,7 @@ private enum class EntryDialog {
     VALUATION,
     RECURRING_RULE,
     ACCOUNT,
+    INVESTMENT_ASSET,
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -153,7 +155,11 @@ fun YukiAccountApp(viewModel: AppViewModel = viewModel()) {
                 padding = padding,
                 onCreateAccount = { dialog = EntryDialog.ACCOUNT },
             )
-            AppTab.INVESTMENTS -> InvestmentListScreen(state.investments, padding)
+            AppTab.INVESTMENTS -> InvestmentListScreen(
+                investments = state.investments,
+                padding = padding,
+                onCreateInvestment = { dialog = EntryDialog.INVESTMENT_ASSET },
+            )
             AppTab.SETTINGS -> SettingsScreen(
                 padding = padding,
                 onExport = {
@@ -245,6 +251,13 @@ fun YukiAccountApp(viewModel: AppViewModel = viewModel()) {
             },
             onConfirmCreditCard = { name, unpaidBalance, creditLimit, billingDay, repaymentDay ->
                 viewModel.addCreditCardAccount(name, unpaidBalance, creditLimit, billingDay, repaymentDay)
+                dialog = null
+            },
+        )
+        EntryDialog.INVESTMENT_ASSET -> InvestmentAssetDialog(
+            onDismiss = { dialog = null },
+            onConfirm = { name, type, principal, currentValue ->
+                viewModel.addInvestmentAsset(name, type, principal, currentValue)
                 dialog = null
             },
         )
@@ -465,7 +478,11 @@ private fun AccountListScreen(
 }
 
 @Composable
-private fun InvestmentListScreen(investments: List<InvestmentAsset>, padding: PaddingValues) {
+private fun InvestmentListScreen(
+    investments: List<InvestmentAsset>,
+    padding: PaddingValues,
+    onCreateInvestment: () -> Unit,
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -473,6 +490,10 @@ private fun InvestmentListScreen(investments: List<InvestmentAsset>, padding: Pa
             .padding(16.dp),
     ) {
         Text("投资", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
+        Spacer(Modifier.height(12.dp))
+        Button(onClick = onCreateInvestment, modifier = Modifier.fillMaxWidth()) {
+            Text("新增投资资产")
+        }
         Spacer(Modifier.height(16.dp))
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             investments.forEach { investment ->
@@ -590,6 +611,40 @@ private fun MoneyEntryDialog(
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("取消") }
         },
+    )
+}
+
+@Composable
+private fun InvestmentAssetDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (String, InvestmentType, Money, Money) -> Unit,
+) {
+    var name by remember { mutableStateOf("") }
+    var type by remember { mutableStateOf(InvestmentType.FUND) }
+    var principalText by remember { mutableStateOf("") }
+    var currentValueText by remember { mutableStateOf("") }
+    val principal = principalText.toOptionalMoneyOrNull()
+    val currentValue = currentValueText.toOptionalMoneyOrNull()
+    val canSave = name.isNotBlank() && principal != null && currentValue != null
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("新增投资资产") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("资产名称") })
+                InvestmentTypeSelector(selected = type, onSelected = { type = it })
+                OutlinedTextField(value = principalText, onValueChange = { principalText = it }, label = { Text("累计本金") })
+                OutlinedTextField(value = currentValueText, onValueChange = { currentValueText = it }, label = { Text("当前市值") })
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = canSave,
+                onClick = { onConfirm(name, type, requireNotNull(principal), requireNotNull(currentValue)) },
+            ) { Text("保存资产") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
     )
 }
 
@@ -958,6 +1013,36 @@ private fun FrequencySelector(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+private fun InvestmentTypeSelector(
+    selected: InvestmentType,
+    onSelected: (InvestmentType) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
+        OutlinedTextField(
+            value = selected.label(),
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("投资类型") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
+            modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable, enabled = true),
+        )
+        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            InvestmentType.entries.forEach { investmentType ->
+                DropdownMenuItem(
+                    text = { Text(investmentType.label()) },
+                    onClick = {
+                        onSelected(investmentType)
+                        expanded = false
+                    },
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
 private fun AccountTypeSelector(
     selected: AccountType,
     onSelected: (AccountType) -> Unit,
@@ -1065,6 +1150,13 @@ private fun AccountType.label(): String =
         AccountType.ALIPAY -> "支付宝"
         AccountType.WECHAT -> "微信"
         AccountType.CREDIT_CARD -> "信用卡"
+    }
+
+private fun InvestmentType.label(): String =
+    when (this) {
+        InvestmentType.FUND -> "基金"
+        InvestmentType.GOLD -> "黄金"
+        InvestmentType.WEALTH_MANAGEMENT -> "理财"
     }
 
 private fun RecurringFrequency.label(): String =

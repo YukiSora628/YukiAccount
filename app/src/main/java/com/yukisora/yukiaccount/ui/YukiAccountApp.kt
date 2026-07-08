@@ -1,7 +1,8 @@
 package com.yukisora.yukiaccount.ui
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -31,12 +32,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.yukisora.yukiaccount.data.backup.BackupImportResult
 import com.yukisora.yukiaccount.domain.model.Account
 import com.yukisora.yukiaccount.domain.model.AccountType
 import com.yukisora.yukiaccount.domain.model.InvestmentAsset
@@ -44,6 +48,8 @@ import com.yukisora.yukiaccount.domain.model.Money
 import com.yukisora.yukiaccount.domain.model.Transaction
 import com.yukisora.yukiaccount.domain.model.TransactionType
 import com.yukisora.yukiaccount.domain.service.LedgerCalculator
+import java.time.LocalDate
+import kotlinx.coroutines.launch
 
 private enum class AppTab(val title: String) {
     DASHBOARD("首页"),
@@ -66,6 +72,54 @@ fun YukiAccountApp(viewModel: AppViewModel = viewModel()) {
     var selectedTab by remember { mutableStateOf(AppTab.DASHBOARD) }
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var dialog by remember { mutableStateOf<EntryDialog?>(null) }
+    var statusMessage by remember { mutableStateOf<String?>(null) }
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val exportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/json"),
+    ) { uri ->
+        if (uri != null) {
+            scope.launch {
+                val result = runCatching {
+                    val json = viewModel.exportBackupJson()
+                    val stream = context.contentResolver.openOutputStream(uri)
+                        ?: error("无法写入备份文件")
+                    stream.bufferedWriter(Charsets.UTF_8).use { writer ->
+                        writer.write(json)
+                    }
+                }
+                statusMessage = result.fold(
+                    onSuccess = { "备份已导出" },
+                    onFailure = { "导出失败：${it.message ?: "未知错误"}" },
+                )
+            }
+        }
+    }
+    val importLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri != null) {
+            scope.launch {
+                val result = runCatching {
+                    val stream = context.contentResolver.openInputStream(uri)
+                        ?: error("无法读取备份文件")
+                    val rawJson = stream.bufferedReader(Charsets.UTF_8).use { reader ->
+                        reader.readText()
+                    }
+                    viewModel.importBackupJson(rawJson)
+                }
+                statusMessage = result.fold(
+                    onSuccess = { importResult ->
+                        when (importResult) {
+                            is BackupImportResult.Valid -> "备份已导入"
+                            is BackupImportResult.Invalid -> "导入失败：${importResult.reason}"
+                        }
+                    },
+                    onFailure = { "导入失败：${it.message ?: "未知错误"}" },
+                )
+            }
+        }
+    }
 
     Scaffold(
         bottomBar = {
@@ -90,7 +144,15 @@ fun YukiAccountApp(viewModel: AppViewModel = viewModel()) {
             AppTab.TRANSACTIONS -> TransactionListScreen(state.transactions, padding)
             AppTab.ACCOUNTS -> AccountListScreen(state.accounts, padding)
             AppTab.INVESTMENTS -> InvestmentListScreen(state.investments, padding)
-            AppTab.SETTINGS -> SettingsScreen(padding)
+            AppTab.SETTINGS -> SettingsScreen(
+                padding = padding,
+                onExport = {
+                    exportLauncher.launch("yuki-account-backup-${LocalDate.now()}.json")
+                },
+                onImport = {
+                    importLauncher.launch(arrayOf("application/json", "text/plain", "*/*"))
+                },
+            )
         }
     }
 
@@ -133,6 +195,14 @@ fun YukiAccountApp(viewModel: AppViewModel = viewModel()) {
             },
         )
         null -> Unit
+    }
+
+    statusMessage?.let { message ->
+        SimpleMessageDialog(
+            title = "导入导出",
+            message = message,
+            onDismiss = { statusMessage = null },
+        )
     }
 }
 
@@ -308,7 +378,11 @@ private fun InvestmentListScreen(investments: List<InvestmentAsset>, padding: Pa
 }
 
 @Composable
-private fun SettingsScreen(padding: PaddingValues) {
+private fun SettingsScreen(
+    padding: PaddingValues,
+    onExport: () -> Unit,
+    onImport: () -> Unit,
+) {
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -321,7 +395,25 @@ private fun SettingsScreen(padding: PaddingValues) {
         }
         item { InfoCard("分类管理", "管理消费、收入、固定支出和投资投入分类。") }
         item { InfoCard("周期规则", "管理会员订阅、自动续费和定投规则。") }
-        item { InfoCard("导入导出", "手动导出或导入本地 JSON 备份。") }
+        item {
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Text("导入导出", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text("手动导出或导入本地 JSON 备份。", style = MaterialTheme.typography.bodyMedium)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = onExport, modifier = Modifier.weight(1f)) {
+                            Text("导出 JSON")
+                        }
+                        Button(onClick = onImport, modifier = Modifier.weight(1f)) {
+                            Text("导入 JSON")
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

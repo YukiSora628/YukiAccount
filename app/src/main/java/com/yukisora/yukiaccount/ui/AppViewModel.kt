@@ -3,6 +3,7 @@ package com.yukisora.yukiaccount.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.yukisora.yukiaccount.data.backup.BackupImportResult
 import com.yukisora.yukiaccount.data.db.YukiAccountDatabase
 import com.yukisora.yukiaccount.data.repository.AccountingRepository
 import com.yukisora.yukiaccount.data.repository.DashboardSummary
@@ -70,6 +71,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             repository.updateInvestmentValue(investment.id, value)
         }
     }
+
+    suspend fun exportBackupJson(): String =
+        repository.exportBackupJson()
+
+    suspend fun importBackupJson(rawJson: String): BackupImportResult =
+        repository.importBackupJson(rawJson)
 }
 
 data class AccountingUiState(

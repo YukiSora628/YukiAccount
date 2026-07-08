@@ -24,11 +24,17 @@ interface AccountDao {
     @Query("SELECT * FROM accounts WHERE isArchived = 0 ORDER BY createdAt ASC")
     suspend fun activeAccounts(): List<AccountEntity>
 
+    @Query("SELECT * FROM accounts ORDER BY createdAt ASC")
+    suspend fun allAccounts(): List<AccountEntity>
+
     @Query("SELECT * FROM accounts WHERE id = :id")
     suspend fun getById(id: String): AccountEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(account: AccountEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertAll(accounts: List<AccountEntity>)
 
     @Update
     suspend fun update(account: AccountEntity)
@@ -48,6 +54,9 @@ interface TransactionDao {
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insert(transaction: TransactionEntity)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertAll(transactions: List<TransactionEntity>)
+
     @Delete
     suspend fun delete(transaction: TransactionEntity)
 }
@@ -60,17 +69,26 @@ interface RecurringRuleDao {
     @Query("SELECT * FROM recurring_rules ORDER BY nextOccurrenceDate ASC")
     fun observeRules(): Flow<List<RecurringRuleEntity>>
 
+    @Query("SELECT * FROM recurring_rules ORDER BY createdAt ASC")
+    suspend fun allRules(): List<RecurringRuleEntity>
+
     @Query("SELECT * FROM skipped_occurrences")
     suspend fun skippedOccurrences(): List<SkippedOccurrenceEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(rule: RecurringRuleEntity)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertAll(rules: List<RecurringRuleEntity>)
+
     @Update
     suspend fun update(rule: RecurringRuleEntity)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSkipped(skippedOccurrence: SkippedOccurrenceEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertSkippedAll(skippedOccurrences: List<SkippedOccurrenceEntity>)
 }
 
 @Dao
@@ -81,17 +99,29 @@ interface InvestmentDao {
     @Query("SELECT * FROM investment_assets WHERE isArchived = 0 ORDER BY createdAt ASC")
     suspend fun activeInvestments(): List<InvestmentAssetEntity>
 
+    @Query("SELECT * FROM investment_assets ORDER BY createdAt ASC")
+    suspend fun allInvestments(): List<InvestmentAssetEntity>
+
     @Query("SELECT * FROM investment_assets WHERE id = :id")
     suspend fun getAsset(id: String): InvestmentAssetEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAsset(asset: InvestmentAssetEntity)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertAssets(assets: List<InvestmentAssetEntity>)
+
     @Update
     suspend fun updateAsset(asset: InvestmentAssetEntity)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertValuation(snapshot: ValuationSnapshotEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertValuations(snapshots: List<ValuationSnapshotEntity>)
+
+    @Query("SELECT * FROM valuation_snapshots ORDER BY date ASC, createdAt ASC")
+    suspend fun allValuations(): List<ValuationSnapshotEntity>
 }
 
 @Dao
@@ -99,6 +129,12 @@ interface CategoryDao {
     @Query("SELECT * FROM categories WHERE isArchived = 0 ORDER BY sortOrder ASC")
     fun observeActiveCategories(): Flow<List<CategoryEntity>>
 
+    @Query("SELECT * FROM categories ORDER BY sortOrder ASC")
+    suspend fun allCategories(): List<CategoryEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(category: CategoryEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertAll(categories: List<CategoryEntity>)
 }

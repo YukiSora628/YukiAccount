@@ -1,6 +1,9 @@
 package com.yukisora.yukiaccount.data.repository
 
 import androidx.room.withTransaction
+import com.yukisora.yukiaccount.data.backup.BackupImportResult
+import com.yukisora.yukiaccount.data.backup.BackupMapper
+import com.yukisora.yukiaccount.data.backup.BackupService
 import com.yukisora.yukiaccount.data.db.YukiAccountDatabase
 import com.yukisora.yukiaccount.data.model.AccountEntity
 import com.yukisora.yukiaccount.data.model.InvestmentAssetEntity
@@ -18,6 +21,7 @@ import com.yukisora.yukiaccount.domain.service.LedgerCalculator
 import com.yukisora.yukiaccount.domain.service.RecurringGenerator
 import java.time.LocalDate
 import java.time.YearMonth
+import java.time.format.DateTimeParseException
 import java.util.UUID
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -26,6 +30,7 @@ import kotlinx.coroutines.flow.map
 class AccountingRepository(
     private val database: YukiAccountDatabase,
     private val clock: () -> Long = { System.currentTimeMillis() },
+    private val backupService: BackupService = BackupService(),
 ) {
     suspend fun ensureSeedData() {
         database.withTransaction {
@@ -153,6 +158,48 @@ class AccountingRepository(
             result.updatedRules.forEach { database.recurringRuleDao().update(it.toEntity(now)) }
             result.transactions.size
         }
+
+    suspend fun exportBackupJson(): String =
+        database.withTransaction {
+            backupService.export(
+                BackupMapper.toDocument(
+                    accounts = database.accountDao().allAccounts(),
+                    categories = database.categoryDao().allCategories(),
+                    transactions = database.transactionDao().allTransactions(),
+                    recurringRules = database.recurringRuleDao().allRules(),
+                    investmentAssets = database.investmentDao().allInvestments(),
+                    valuationSnapshots = database.investmentDao().allValuations(),
+                    skippedOccurrences = database.recurringRuleDao().skippedOccurrences(),
+                )
+            )
+        }
+
+    suspend fun importBackupJson(rawJson: String): BackupImportResult {
+        val result = backupService.parseForImport(rawJson)
+        if (result !is BackupImportResult.Valid) {
+            return result
+        }
+
+        val entities = try {
+            BackupMapper.toEntities(result.document)
+        } catch (error: IllegalArgumentException) {
+            return BackupImportResult.Invalid("备份文件内容无效")
+        } catch (error: DateTimeParseException) {
+            return BackupImportResult.Invalid("备份文件日期无效")
+        }
+
+        database.withTransaction {
+            database.accountDao().upsertAll(entities.accounts)
+            database.categoryDao().upsertAll(entities.categories)
+            database.recurringRuleDao().upsertAll(entities.recurringRules)
+            database.investmentDao().upsertAssets(entities.investmentAssets)
+            database.transactionDao().upsertAll(entities.transactions)
+            database.investmentDao().upsertValuations(entities.valuationSnapshots)
+            database.recurringRuleDao().upsertSkippedAll(entities.skippedOccurrences)
+        }
+
+        return result
+    }
 
     private suspend fun addTransactionInCurrentTransaction(transaction: Transaction) {
         val accountEntities = database.accountDao().activeAccounts()

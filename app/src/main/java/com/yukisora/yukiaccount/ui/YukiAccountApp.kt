@@ -62,6 +62,7 @@ private enum class AppTab(val title: String) {
 private enum class EntryDialog {
     EXPENSE,
     INCOME,
+    CREDIT_CARD_REPAYMENT,
     INVESTMENT_BUY,
     VALUATION,
 }
@@ -186,6 +187,15 @@ fun YukiAccountApp(viewModel: AppViewModel = viewModel()) {
                 dialog = null
             },
         )
+        EntryDialog.CREDIT_CARD_REPAYMENT -> CreditCardRepaymentDialog(
+            sourceAccounts = state.accounts.filter { it.type != AccountType.CREDIT_CARD },
+            creditCards = state.accounts.filter { it.type == AccountType.CREDIT_CARD },
+            onDismiss = { dialog = null },
+            onConfirm = { amount, sourceAccount, creditCard, note ->
+                viewModel.addCreditCardRepayment(amount, sourceAccount, creditCard, note)
+                dialog = null
+            },
+        )
         EntryDialog.VALUATION -> ValuationDialog(
             investments = state.investments,
             onDismiss = { dialog = null },
@@ -288,6 +298,12 @@ private fun DashboardScreen(
                         modifier = Modifier.weight(1f),
                     ) { Text("更新市值") }
                 }
+                Button(
+                    onClick = { onOpenDialog(EntryDialog.CREDIT_CARD_REPAYMENT) },
+                    enabled = state.accounts.any { it.type != AccountType.CREDIT_CARD } &&
+                        state.accounts.any { it.type == AccountType.CREDIT_CARD },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("信用卡还款") }
             }
         }
         item {
@@ -488,6 +504,44 @@ private fun MoneyEntryDialog(
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("取消") }
         },
+    )
+}
+
+@Composable
+private fun CreditCardRepaymentDialog(
+    sourceAccounts: List<Account>,
+    creditCards: List<Account>,
+    onDismiss: () -> Unit,
+    onConfirm: (Money, Account, Account, String) -> Unit,
+) {
+    if (sourceAccounts.isEmpty() || creditCards.isEmpty()) {
+        SimpleMessageDialog(title = "信用卡还款", message = "需要至少一个资产账户和一个信用卡账户", onDismiss = onDismiss)
+        return
+    }
+    var amountText by remember { mutableStateOf("") }
+    var note by remember { mutableStateOf("") }
+    var selectedSource by remember(sourceAccounts) { mutableStateOf(sourceAccounts.first()) }
+    var selectedCard by remember(creditCards) { mutableStateOf(creditCards.first()) }
+    val amount = amountText.toMoneyOrNull()
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("信用卡还款") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(value = amountText, onValueChange = { amountText = it }, label = { Text("还款金额") })
+                AccountSelector(accounts = sourceAccounts, selected = selectedSource, onSelected = { selectedSource = it })
+                AccountSelector(accounts = creditCards, selected = selectedCard, onSelected = { selectedCard = it })
+                OutlinedTextField(value = note, onValueChange = { note = it }, label = { Text("备注") })
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = amount != null,
+                onClick = { onConfirm(requireNotNull(amount), selectedSource, selectedCard, note) },
+            ) { Text("保存还款") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
     )
 }
 

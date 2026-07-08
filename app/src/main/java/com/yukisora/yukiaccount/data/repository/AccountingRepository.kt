@@ -20,6 +20,7 @@ import com.yukisora.yukiaccount.domain.model.Transaction
 import com.yukisora.yukiaccount.domain.model.TransactionType
 import com.yukisora.yukiaccount.domain.service.LedgerCalculator
 import com.yukisora.yukiaccount.domain.service.RecurringGenerator
+import com.yukisora.yukiaccount.domain.service.TransactionFactory
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeParseException
@@ -127,6 +128,18 @@ class AccountingRepository(
         )
     }
 
+    suspend fun addCreditCardRepayment(amount: Money, sourceAccountId: String, creditCardAccountId: String, note: String) {
+        addTransaction(
+            TransactionFactory.creditCardRepayment(
+                id = UUID.randomUUID().toString(),
+                amount = amount,
+                sourceAccountId = sourceAccountId,
+                creditCardAccountId = creditCardAccountId,
+                date = LocalDate.now(),
+                note = note,
+            )
+        )
+    }
 
     suspend fun updateInvestmentValue(investmentAssetId: String, value: Money, date: LocalDate = LocalDate.now()) {
         database.withTransaction {

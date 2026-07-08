@@ -66,6 +66,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun addCreditCardRepayment(amount: Money, sourceAccount: Account, creditCardAccount: Account, note: String) {
+        viewModelScope.launch {
+            repository.addCreditCardRepayment(amount, sourceAccount.id, creditCardAccount.id, note)
+        }
+    }
+
     fun updateInvestmentValue(investment: InvestmentAsset, value: Money) {
         viewModelScope.launch {
             repository.updateInvestmentValue(investment.id, value)

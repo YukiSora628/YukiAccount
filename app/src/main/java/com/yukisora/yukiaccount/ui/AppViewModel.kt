@@ -8,6 +8,7 @@ import com.yukisora.yukiaccount.data.db.YukiAccountDatabase
 import com.yukisora.yukiaccount.data.repository.AccountingRepository
 import com.yukisora.yukiaccount.data.repository.DashboardSummary
 import com.yukisora.yukiaccount.domain.model.Account
+import com.yukisora.yukiaccount.domain.model.AccountType
 import com.yukisora.yukiaccount.domain.model.InvestmentAsset
 import com.yukisora.yukiaccount.domain.model.Money
 import com.yukisora.yukiaccount.domain.model.RecurringFrequency
@@ -46,6 +47,24 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             repository.ensureSeedData()
             repository.generateRecurringTransactions()
+        }
+    }
+
+    fun addAssetAccount(name: String, type: AccountType, balance: Money) {
+        viewModelScope.launch {
+            repository.addAssetAccount(name, type, balance)
+        }
+    }
+
+    fun addCreditCardAccount(
+        name: String,
+        unpaidBalance: Money,
+        creditLimit: Money?,
+        billingDay: Int?,
+        repaymentDay: Int?,
+    ) {
+        viewModelScope.launch {
+            repository.addCreditCardAccount(name, unpaidBalance, creditLimit, billingDay, repaymentDay)
         }
     }
 

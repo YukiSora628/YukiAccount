@@ -19,6 +19,7 @@ import com.yukisora.yukiaccount.domain.model.Money
 import com.yukisora.yukiaccount.domain.model.RecurringFrequency
 import com.yukisora.yukiaccount.domain.model.Transaction
 import com.yukisora.yukiaccount.domain.model.TransactionType
+import com.yukisora.yukiaccount.domain.service.AccountFactory
 import com.yukisora.yukiaccount.domain.service.LedgerCalculator
 import com.yukisora.yukiaccount.domain.service.RecurringGenerator
 import com.yukisora.yukiaccount.domain.service.RecurringRuleFactory
@@ -83,6 +84,38 @@ class AccountingRepository(
 
     fun observeInvestments(): Flow<List<InvestmentAsset>> =
         database.investmentDao().observeActiveInvestments().map { entities -> entities.map { it.toDomain() } }
+
+    suspend fun addAssetAccount(name: String, type: AccountType, balance: Money) {
+        val now = clock()
+        database.accountDao().upsert(
+            AccountFactory.assetAccount(
+                id = UUID.randomUUID().toString(),
+                name = name,
+                type = type,
+                balance = balance,
+            ).toEntity(now)
+        )
+    }
+
+    suspend fun addCreditCardAccount(
+        name: String,
+        unpaidBalance: Money,
+        creditLimit: Money?,
+        billingDay: Int?,
+        repaymentDay: Int?,
+    ) {
+        val now = clock()
+        database.accountDao().upsert(
+            AccountFactory.creditCard(
+                id = UUID.randomUUID().toString(),
+                name = name,
+                unpaidBalance = unpaidBalance,
+                creditLimit = creditLimit,
+                billingDay = billingDay,
+                repaymentDay = repaymentDay,
+            ).toEntity(now)
+        )
+    }
 
     suspend fun addTransaction(transaction: Transaction) {
         database.withTransaction {

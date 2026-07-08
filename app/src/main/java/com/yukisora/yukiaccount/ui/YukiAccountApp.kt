@@ -69,6 +69,7 @@ private enum class EntryDialog {
     INVESTMENT_BUY,
     VALUATION,
     RECURRING_RULE,
+    ACCOUNT,
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -147,7 +148,11 @@ fun YukiAccountApp(viewModel: AppViewModel = viewModel()) {
                 onOpenDialog = { dialog = it },
             )
             AppTab.TRANSACTIONS -> TransactionListScreen(state.transactions, padding)
-            AppTab.ACCOUNTS -> AccountListScreen(state.accounts, padding)
+            AppTab.ACCOUNTS -> AccountListScreen(
+                accounts = state.accounts,
+                padding = padding,
+                onCreateAccount = { dialog = EntryDialog.ACCOUNT },
+            )
             AppTab.INVESTMENTS -> InvestmentListScreen(state.investments, padding)
             AppTab.SETTINGS -> SettingsScreen(
                 padding = padding,
@@ -229,6 +234,17 @@ fun YukiAccountApp(viewModel: AppViewModel = viewModel()) {
             },
             onConfirmInvestmentBuy = { name, amount, account, investment, frequency ->
                 viewModel.addInvestmentBuyRule(name, amount, account, investment, frequency)
+                dialog = null
+            },
+        )
+        EntryDialog.ACCOUNT -> AccountDialog(
+            onDismiss = { dialog = null },
+            onConfirmAsset = { name, type, balance ->
+                viewModel.addAssetAccount(name, type, balance)
+                dialog = null
+            },
+            onConfirmCreditCard = { name, unpaidBalance, creditLimit, billingDay, repaymentDay ->
+                viewModel.addCreditCardAccount(name, unpaidBalance, creditLimit, billingDay, repaymentDay)
                 dialog = null
             },
         )
@@ -416,7 +432,11 @@ private fun TransactionListScreen(transactions: List<Transaction>, padding: Padd
 }
 
 @Composable
-private fun AccountListScreen(accounts: List<Account>, padding: PaddingValues) {
+private fun AccountListScreen(
+    accounts: List<Account>,
+    padding: PaddingValues,
+    onCreateAccount: () -> Unit,
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -424,6 +444,10 @@ private fun AccountListScreen(accounts: List<Account>, padding: PaddingValues) {
             .padding(16.dp),
     ) {
         Text("账户", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
+        Spacer(Modifier.height(12.dp))
+        Button(onClick = onCreateAccount, modifier = Modifier.fillMaxWidth()) {
+            Text("新增账户")
+        }
         Spacer(Modifier.height(16.dp))
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             accounts.forEach { account ->
@@ -566,6 +590,86 @@ private fun MoneyEntryDialog(
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("取消") }
         },
+    )
+}
+
+@Composable
+private fun AccountDialog(
+    onDismiss: () -> Unit,
+    onConfirmAsset: (String, AccountType, Money) -> Unit,
+    onConfirmCreditCard: (String, Money, Money?, Int?, Int?) -> Unit,
+) {
+    var name by remember { mutableStateOf("") }
+    var type by remember { mutableStateOf(AccountType.BANK_CARD) }
+    var balanceText by remember { mutableStateOf("") }
+    var creditLimitText by remember { mutableStateOf("") }
+    var billingDayText by remember { mutableStateOf("") }
+    var repaymentDayText by remember { mutableStateOf("") }
+    val balance = balanceText.toOptionalMoneyOrNull()
+    val creditLimit = creditLimitText.toOptionalMoneyOrNull()
+    val billingDay = billingDayText.toOptionalDayOrNull()
+    val repaymentDay = repaymentDayText.toOptionalDayOrNull()
+    val canSave = name.isNotBlank() &&
+        balance != null &&
+        (
+            type != AccountType.CREDIT_CARD ||
+                (
+                    creditLimit != null &&
+                        (billingDayText.isBlank() || billingDay != null) &&
+                        (repaymentDayText.isBlank() || repaymentDay != null)
+                    )
+            )
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("新增账户") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("账户名称") })
+                AccountTypeSelector(selected = type, onSelected = { type = it })
+                OutlinedTextField(
+                    value = balanceText,
+                    onValueChange = { balanceText = it },
+                    label = { Text(if (type == AccountType.CREDIT_CARD) "当前未还" else "初始余额") },
+                )
+                if (type == AccountType.CREDIT_CARD) {
+                    OutlinedTextField(
+                        value = creditLimitText,
+                        onValueChange = { creditLimitText = it },
+                        label = { Text("信用额度") },
+                    )
+                    OutlinedTextField(
+                        value = billingDayText,
+                        onValueChange = { billingDayText = it },
+                        label = { Text("账单日") },
+                    )
+                    OutlinedTextField(
+                        value = repaymentDayText,
+                        onValueChange = { repaymentDayText = it },
+                        label = { Text("还款日") },
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = canSave,
+                onClick = {
+                    if (type == AccountType.CREDIT_CARD) {
+                        onConfirmCreditCard(
+                            name,
+                            requireNotNull(balance),
+                            requireNotNull(creditLimit).takeUnless { creditLimitText.isBlank() },
+                            billingDay,
+                            repaymentDay,
+                        )
+                    } else {
+                        onConfirmAsset(name, type, requireNotNull(balance))
+                    }
+                },
+            ) { Text("保存账户") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
     )
 }
 
@@ -854,6 +958,36 @@ private fun FrequencySelector(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+private fun AccountTypeSelector(
+    selected: AccountType,
+    onSelected: (AccountType) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
+        OutlinedTextField(
+            value = selected.label(),
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("账户类型") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
+            modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable, enabled = true),
+        )
+        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            AccountType.entries.forEach { accountType ->
+                DropdownMenuItem(
+                    text = { Text(accountType.label()) },
+                    onClick = {
+                        onSelected(accountType)
+                        expanded = false
+                    },
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
 private fun AccountSelector(
     accounts: List<Account>,
     selected: Account,
@@ -924,9 +1058,31 @@ private fun TransactionType.label(): String =
         TransactionType.INVESTMENT_BUY -> "投资买入"
     }
 
+private fun AccountType.label(): String =
+    when (this) {
+        AccountType.CASH -> "现金"
+        AccountType.BANK_CARD -> "银行卡"
+        AccountType.ALIPAY -> "支付宝"
+        AccountType.WECHAT -> "微信"
+        AccountType.CREDIT_CARD -> "信用卡"
+    }
+
 private fun RecurringFrequency.label(): String =
     when (this) {
         RecurringFrequency.DAILY -> "每天"
         RecurringFrequency.WEEKLY -> "每周"
         RecurringFrequency.MONTHLY -> "每月"
     }
+
+private fun String.toOptionalMoneyOrNull(): Money? =
+    if (isBlank()) {
+        Money.ZERO
+    } else {
+        toMoneyOrNull()
+    }
+
+private fun String.toOptionalDayOrNull(): Int? {
+    if (isBlank()) return null
+    val day = toIntOrNull() ?: return null
+    return day.takeIf { it in 1..31 }
+}

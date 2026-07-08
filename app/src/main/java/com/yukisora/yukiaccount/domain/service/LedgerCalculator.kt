@@ -54,6 +54,50 @@ object LedgerCalculator {
         return LedgerState(updatedAccounts, updatedInvestments)
     }
 
+    fun revertTransaction(
+        accounts: List<Account>,
+        investments: List<InvestmentAsset>,
+        transaction: Transaction,
+    ): LedgerState {
+        val updatedAccounts = when (transaction.type) {
+            TransactionType.EXPENSE -> accounts.updateAccount(transaction.accountId) { account ->
+                if (account.type == AccountType.CREDIT_CARD) {
+                    account.copy(balance = account.balance - transaction.amount)
+                } else {
+                    account.copy(balance = account.balance + transaction.amount)
+                }
+            }
+            TransactionType.INCOME -> accounts.updateAccount(transaction.accountId) { account ->
+                account.copy(balance = account.balance - transaction.amount)
+            }
+            TransactionType.REFUND -> accounts.updateAccount(transaction.accountId) { account ->
+                if (account.type == AccountType.CREDIT_CARD) {
+                    account.copy(balance = account.balance + transaction.amount)
+                } else {
+                    account.copy(balance = account.balance - transaction.amount)
+                }
+            }
+            TransactionType.TRANSFER -> accounts
+                .updateAccount(transaction.accountId) { it.copy(balance = it.balance + transaction.amount) }
+                .updateAccount(requireNotNull(transaction.targetAccountId)) { it.copy(balance = it.balance - transaction.amount) }
+            TransactionType.CREDIT_CARD_REPAYMENT -> accounts
+                .updateAccount(transaction.accountId) { it.copy(balance = it.balance + transaction.amount) }
+                .updateAccount(requireNotNull(transaction.targetAccountId)) { it.copy(balance = it.balance + transaction.amount) }
+            TransactionType.INVESTMENT_BUY -> accounts
+                .updateAccount(transaction.accountId) { it.copy(balance = it.balance + transaction.amount) }
+        }
+
+        val updatedInvestments = if (transaction.type == TransactionType.INVESTMENT_BUY) {
+            investments.updateInvestment(requireNotNull(transaction.investmentAssetId)) { investment ->
+                investment.copy(principal = investment.principal - transaction.amount)
+            }
+        } else {
+            investments
+        }
+
+        return LedgerState(updatedAccounts, updatedInvestments)
+    }
+
     fun monthlyRealConsumption(transactions: List<Transaction>, month: YearMonth): Money =
         transactions
             .filter { YearMonth.from(it.date) == month }

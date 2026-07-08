@@ -14,6 +14,7 @@ import com.yukisora.yukiaccount.domain.model.InvestmentType
 import com.yukisora.yukiaccount.domain.model.Money
 import com.yukisora.yukiaccount.domain.model.RecurringFrequency
 import com.yukisora.yukiaccount.domain.model.Transaction
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -24,6 +25,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = AccountingRepository(
         YukiAccountDatabase.getInstance(application)
     )
+    private val generatedRecurringTransactionIds = MutableStateFlow<List<String>>(emptyList())
 
     val uiState: StateFlow<AccountingUiState> =
         combine(
@@ -31,12 +33,14 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             repository.observeTransactions(),
             repository.observeAccounts(),
             repository.observeInvestments(),
-        ) { dashboard, transactions, accounts, investments ->
+            generatedRecurringTransactionIds,
+        ) { dashboard, transactions, accounts, investments, recurringTransactionIds ->
             AccountingUiState(
                 dashboard = dashboard,
                 transactions = transactions,
                 accounts = accounts,
                 investments = investments,
+                recurringGenerationCount = recurringTransactionIds.size,
             )
         }.stateIn(
             scope = viewModelScope,
@@ -47,7 +51,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     init {
         viewModelScope.launch {
             repository.ensureSeedData()
-            repository.generateRecurringTransactions()
+            generatedRecurringTransactionIds.value = repository.generateRecurringTransactions().transactionIds
         }
     }
 
@@ -135,6 +139,16 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun undoLastRecurringGeneration() {
+        viewModelScope.launch {
+            val transactionIds = generatedRecurringTransactionIds.value
+            if (transactionIds.isNotEmpty()) {
+                repository.undoGeneratedTransactions(transactionIds)
+                generatedRecurringTransactionIds.value = emptyList()
+            }
+        }
+    }
+
     suspend fun exportBackupJson(): String =
         repository.exportBackupJson()
 
@@ -153,4 +167,5 @@ data class AccountingUiState(
     val transactions: List<Transaction> = emptyList(),
     val accounts: List<Account> = emptyList(),
     val investments: List<InvestmentAsset> = emptyList(),
+    val recurringGenerationCount: Int = 0,
 )

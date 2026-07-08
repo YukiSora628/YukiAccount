@@ -148,6 +148,7 @@ fun YukiAccountApp(viewModel: AppViewModel = viewModel()) {
                 state = state,
                 padding = padding,
                 onOpenDialog = { dialog = it },
+                onUndoRecurringGeneration = viewModel::undoLastRecurringGeneration,
             )
             AppTab.TRANSACTIONS -> TransactionListScreen(state.transactions, padding)
             AppTab.ACCOUNTS -> AccountListScreen(
@@ -286,6 +287,7 @@ private fun DashboardScreen(
     state: AccountingUiState,
     padding: PaddingValues,
     onOpenDialog: (EntryDialog) -> Unit,
+    onUndoRecurringGeneration: () -> Unit,
 ) {
     LazyColumn(
         modifier = Modifier
@@ -384,9 +386,9 @@ private fun DashboardScreen(
             }
         }
         item {
-            InfoCard(
-                title = "自动周期账单",
-                body = "打开 App 时会自动补记会员订阅、自动续费和定投。当前没有待补记项目。",
+            RecurringGenerationCard(
+                count = state.recurringGenerationCount,
+                onUndo = onUndoRecurringGeneration,
             )
         }
     }
@@ -413,6 +415,26 @@ private fun InfoCard(title: String, body: String) {
             Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(8.dp))
             Text(body, style = MaterialTheme.typography.bodyMedium)
+        }
+    }
+}
+
+@Composable
+private fun RecurringGenerationCard(count: Int, onUndo: () -> Unit) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text("自动周期账单", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            if (count > 0) {
+                Text("本次启动已自动补记 $count 条会员订阅、自动续费或定投流水。", style = MaterialTheme.typography.bodyMedium)
+                Button(onClick = onUndo, modifier = Modifier.fillMaxWidth()) {
+                    Text("撤销本次补记")
+                }
+            } else {
+                Text("打开 App 时会自动补记会员订阅、自动续费和定投。当前没有待补记项目。", style = MaterialTheme.typography.bodyMedium)
+            }
         }
     }
 }

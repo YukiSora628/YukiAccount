@@ -196,6 +196,40 @@ class LedgerCalculatorTest {
         assertEquals(Money.cents(700), LedgerCalculator.totalInvestmentGainLoss(investments))
     }
 
+    @Test
+    fun revertInvestmentBuyRestoresAssetBalanceAndPrincipal() {
+        val bank = assetAccount(id = "bank", balance = 26_000)
+        val fund = investment(id = "fund", principal = 14_000, currentValue = 14_500)
+        val buy = transaction(
+            type = TransactionType.INVESTMENT_BUY,
+            amount = 4_000,
+            accountId = bank.id,
+            investmentAssetId = fund.id,
+        )
+
+        val result = LedgerCalculator.revertTransaction(listOf(bank), listOf(fund), buy)
+
+        assertEquals(Money.cents(30_000), result.accounts.single().balance)
+        assertEquals(Money.cents(10_000), result.investments.single().principal)
+    }
+
+    @Test
+    fun revertCreditCardRepaymentRestoresSourceAssetAndCardLiability() {
+        val bank = assetAccount(id = "bank", balance = 15_000)
+        val card = creditCard(id = "card", balance = 3_000)
+        val repayment = transaction(
+            type = TransactionType.CREDIT_CARD_REPAYMENT,
+            amount = 5_000,
+            accountId = bank.id,
+            targetAccountId = card.id,
+        )
+
+        val result = LedgerCalculator.revertTransaction(listOf(bank, card), emptyList(), repayment)
+
+        assertEquals(Money.cents(20_000), result.accounts.first { it.id == bank.id }.balance)
+        assertEquals(Money.cents(8_000), result.accounts.first { it.id == card.id }.balance)
+    }
+
     private fun assetAccount(
         id: String = "asset",
         type: AccountType = AccountType.BANK_CARD,

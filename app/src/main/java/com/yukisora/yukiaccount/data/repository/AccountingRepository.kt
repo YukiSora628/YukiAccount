@@ -152,26 +152,26 @@ class AccountingRepository(
         }
     }
 
-    suspend fun addExpense(amount: Money, accountId: String, note: String) {
+    suspend fun addExpense(amount: Money, accountId: String, categoryId: String?, note: String) {
         addTransaction(
-            Transaction(
+            TransactionFactory.expense(
                 id = UUID.randomUUID().toString(),
-                type = TransactionType.EXPENSE,
                 amount = amount,
                 accountId = accountId,
+                categoryId = categoryId,
                 date = LocalDate.now(),
                 note = note,
             )
         )
     }
 
-    suspend fun addIncome(amount: Money, accountId: String, note: String) {
+    suspend fun addIncome(amount: Money, accountId: String, categoryId: String?, note: String) {
         addTransaction(
-            Transaction(
+            TransactionFactory.income(
                 id = UUID.randomUUID().toString(),
-                type = TransactionType.INCOME,
                 amount = amount,
                 accountId = accountId,
+                categoryId = categoryId,
                 date = LocalDate.now(),
                 note = note,
             )

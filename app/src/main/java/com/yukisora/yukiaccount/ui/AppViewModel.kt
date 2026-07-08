@@ -93,21 +93,21 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun addExpense(amount: Money, account: Account, note: String) {
+    fun addExpense(amount: Money, account: Account, category: Category?, note: String) {
         viewModelScope.launch {
-            repository.addExpense(amount, account.id, note)
+            repository.addExpense(amount, account.id, category?.id, note)
         }
     }
 
-    fun addIncome(amount: Money, account: Account, note: String) {
+    fun addIncome(amount: Money, account: Account, category: Category?, note: String) {
         viewModelScope.launch {
-            repository.addIncome(amount, account.id, note)
+            repository.addIncome(amount, account.id, category?.id, note)
         }
     }
 
-    fun addRefund(amount: Money, account: Account, note: String) {
+    fun addRefund(amount: Money, account: Account, category: Category?, note: String) {
         viewModelScope.launch {
-            repository.addRefund(amount, account.id, note)
+            repository.addRefund(amount, account.id, note, category?.id)
         }
     }
 

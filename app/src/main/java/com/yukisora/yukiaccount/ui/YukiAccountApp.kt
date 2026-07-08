@@ -188,30 +188,33 @@ fun YukiAccountApp(viewModel: AppViewModel = viewModel()) {
         EntryDialog.EXPENSE -> MoneyEntryDialog(
             title = "记一笔支出",
             accounts = state.accounts,
+            categories = state.categories.filter { it.type == "expense" },
             confirmText = "保存支出",
             onDismiss = { dialog = null },
-            onConfirm = { amount, account, note ->
-                viewModel.addExpense(amount, account, note)
+            onConfirm = { amount, account, category, note ->
+                viewModel.addExpense(amount, account, category, note)
                 dialog = null
             },
         )
         EntryDialog.INCOME -> MoneyEntryDialog(
             title = "记一笔收入",
             accounts = state.accounts.filter { it.type != AccountType.CREDIT_CARD },
+            categories = state.categories.filter { it.type == "income" },
             confirmText = "保存收入",
             onDismiss = { dialog = null },
-            onConfirm = { amount, account, note ->
-                viewModel.addIncome(amount, account, note)
+            onConfirm = { amount, account, category, note ->
+                viewModel.addIncome(amount, account, category, note)
                 dialog = null
             },
         )
         EntryDialog.REFUND -> MoneyEntryDialog(
             title = "记一笔退款",
             accounts = state.accounts,
+            categories = state.categories.filter { it.type == "expense" },
             confirmText = "保存退款",
             onDismiss = { dialog = null },
-            onConfirm = { amount, account, note ->
-                viewModel.addRefund(amount, account, note)
+            onConfirm = { amount, account, category, note ->
+                viewModel.addRefund(amount, account, category, note)
                 dialog = null
             },
         )
@@ -728,9 +731,10 @@ private fun RecurringRuleRow(
 private fun MoneyEntryDialog(
     title: String,
     accounts: List<Account>,
+    categories: List<Category>,
     confirmText: String,
     onDismiss: () -> Unit,
-    onConfirm: (Money, Account, String) -> Unit,
+    onConfirm: (Money, Account, Category?, String) -> Unit,
 ) {
     if (accounts.isEmpty()) {
         SimpleMessageDialog(title = title, message = "暂无可用账户", onDismiss = onDismiss)
@@ -739,6 +743,7 @@ private fun MoneyEntryDialog(
     var amountText by remember { mutableStateOf("") }
     var note by remember { mutableStateOf("") }
     var selectedAccount by remember(accounts) { mutableStateOf(accounts.first()) }
+    var selectedCategory by remember(categories) { mutableStateOf(categories.firstOrNull()) }
     val amount = amountText.toMoneyOrNull()
 
     AlertDialog(
@@ -757,6 +762,13 @@ private fun MoneyEntryDialog(
                     selected = selectedAccount,
                     onSelected = { selectedAccount = it },
                 )
+                if (categories.isNotEmpty() && selectedCategory != null) {
+                    CategorySelector(
+                        categories = categories,
+                        selected = requireNotNull(selectedCategory),
+                        onSelected = { selectedCategory = it },
+                    )
+                }
                 OutlinedTextField(
                     value = note,
                     onValueChange = { note = it },
@@ -768,7 +780,7 @@ private fun MoneyEntryDialog(
         confirmButton = {
             TextButton(
                 enabled = amount != null,
-                onClick = { onConfirm(requireNotNull(amount), selectedAccount, note) },
+                onClick = { onConfirm(requireNotNull(amount), selectedAccount, selectedCategory, note) },
             ) { Text(confirmText) }
         },
         dismissButton = {
@@ -1301,6 +1313,37 @@ private fun AccountTypeSelector(
                     text = { Text(accountType.label()) },
                     onClick = {
                         onSelected(accountType)
+                        expanded = false
+                    },
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CategorySelector(
+    categories: List<Category>,
+    selected: Category,
+    onSelected: (Category) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
+        OutlinedTextField(
+            value = selected.name,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("分类") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
+            modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable, enabled = true),
+        )
+        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            categories.forEach { category ->
+                DropdownMenuItem(
+                    text = { Text(category.name) },
+                    onClick = {
+                        onSelected(category)
                         expanded = false
                     },
                 )

@@ -6,6 +6,42 @@ import com.yukisora.yukiaccount.domain.model.TransactionType
 import java.time.LocalDate
 
 object TransactionFactory {
+    fun expense(
+        id: String,
+        amount: Money,
+        accountId: String,
+        categoryId: String?,
+        date: LocalDate,
+        note: String,
+    ): Transaction =
+        Transaction(
+            id = id,
+            type = TransactionType.EXPENSE,
+            amount = amount,
+            accountId = accountId,
+            categoryId = categoryId,
+            date = date,
+            note = note,
+        )
+
+    fun income(
+        id: String,
+        amount: Money,
+        accountId: String,
+        categoryId: String?,
+        date: LocalDate,
+        note: String,
+    ): Transaction =
+        Transaction(
+            id = id,
+            type = TransactionType.INCOME,
+            amount = amount,
+            accountId = accountId,
+            categoryId = categoryId,
+            date = date,
+            note = note,
+        )
+
     fun refund(
         id: String,
         amount: Money,

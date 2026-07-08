@@ -62,6 +62,29 @@ object LedgerCalculator {
                 }
             }
 
+    fun monthlyFixedExpense(
+        transactions: List<Transaction>,
+        fixedExpenseCategoryIds: Set<String>,
+        month: YearMonth,
+    ): Money =
+        transactions
+            .filter { YearMonth.from(it.date) == month && it.categoryId in fixedExpenseCategoryIds }
+            .fold(Money.ZERO) { total, transaction ->
+                when (transaction.type) {
+                    TransactionType.EXPENSE -> total + transaction.amount
+                    TransactionType.REFUND -> total - transaction.amount
+                    TransactionType.INCOME,
+                    TransactionType.TRANSFER,
+                    TransactionType.CREDIT_CARD_REPAYMENT,
+                    TransactionType.INVESTMENT_BUY -> total
+                }
+            }
+
+    fun monthlyInvestmentInput(transactions: List<Transaction>, month: YearMonth): Money =
+        transactions
+            .filter { YearMonth.from(it.date) == month && it.type == TransactionType.INVESTMENT_BUY }
+            .fold(Money.ZERO) { total, transaction -> total + transaction.amount }
+
     fun netWorth(accounts: List<Account>, investments: List<InvestmentAsset>): Money {
         val accountTotal = accounts.fold(Money.ZERO) { total, account ->
             if (account.type == AccountType.CREDIT_CARD) {
@@ -78,6 +101,11 @@ object LedgerCalculator {
 
     fun investmentGainLoss(investment: InvestmentAsset): Money =
         investment.currentValue - investment.principal
+
+    fun totalInvestmentGainLoss(investments: List<InvestmentAsset>): Money =
+        investments.fold(Money.ZERO) { total, investment ->
+            total + investmentGainLoss(investment)
+        }
 
     private fun List<Account>.updateAccount(id: String, transform: (Account) -> Account): List<Account> =
         map { account -> if (account.id == id) transform(account) else account }

@@ -80,7 +80,13 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 }
 
 data class AccountingUiState(
-    val dashboard: DashboardSummary = DashboardSummary(Money.ZERO, Money.ZERO),
+    val dashboard: DashboardSummary = DashboardSummary(
+        monthlyConsumption = Money.ZERO,
+        monthlyFixedExpense = Money.ZERO,
+        monthlyInvestmentInput = Money.ZERO,
+        investmentGainLoss = Money.ZERO,
+        netWorth = Money.ZERO,
+    ),
     val transactions: List<Transaction> = emptyList(),
     val accounts: List<Account> = emptyList(),
     val investments: List<InvestmentAsset> = emptyList(),

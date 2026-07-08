@@ -6,6 +6,7 @@ import com.yukisora.yukiaccount.data.backup.BackupMapper
 import com.yukisora.yukiaccount.data.backup.BackupService
 import com.yukisora.yukiaccount.data.db.YukiAccountDatabase
 import com.yukisora.yukiaccount.data.model.AccountEntity
+import com.yukisora.yukiaccount.data.model.CategoryEntity
 import com.yukisora.yukiaccount.data.model.InvestmentAssetEntity
 import com.yukisora.yukiaccount.data.model.ValuationSnapshotEntity
 import com.yukisora.yukiaccount.data.model.toDomain
@@ -41,6 +42,9 @@ class AccountingRepository(
             if (database.investmentDao().activeInvestments().isEmpty()) {
                 defaultInvestments(now).forEach { database.investmentDao().upsertAsset(it) }
             }
+            if (database.categoryDao().activeCategories().isEmpty()) {
+                database.categoryDao().upsertAll(defaultCategories())
+            }
         }
     }
 
@@ -49,9 +53,21 @@ class AccountingRepository(
             database.accountDao().observeActiveAccounts().map { entities -> entities.map { it.toDomain() } },
             database.investmentDao().observeActiveInvestments().map { entities -> entities.map { it.toDomain() } },
             database.transactionDao().observeTransactions().map { entities -> entities.map { it.toDomain() } },
-        ) { accounts, investments, transactions ->
+            database.categoryDao().observeActiveCategories(),
+        ) { accounts, investments, transactions, categories ->
+            val fixedExpenseCategoryIds = categories
+                .filter { it.isFixedExpense }
+                .map { it.id }
+                .toSet()
             DashboardSummary(
                 monthlyConsumption = LedgerCalculator.monthlyRealConsumption(transactions, YearMonth.now()),
+                monthlyFixedExpense = LedgerCalculator.monthlyFixedExpense(
+                    transactions = transactions,
+                    fixedExpenseCategoryIds = fixedExpenseCategoryIds,
+                    month = YearMonth.now(),
+                ),
+                monthlyInvestmentInput = LedgerCalculator.monthlyInvestmentInput(transactions, YearMonth.now()),
+                investmentGainLoss = LedgerCalculator.totalInvestmentGainLoss(investments),
                 netWorth = LedgerCalculator.netWorth(accounts, investments),
             )
         }
@@ -227,8 +243,47 @@ class AccountingRepository(
 
 data class DashboardSummary(
     val monthlyConsumption: Money,
+    val monthlyFixedExpense: Money,
+    val monthlyInvestmentInput: Money,
+    val investmentGainLoss: Money,
     val netWorth: Money,
 )
+
+private fun defaultCategories(): List<CategoryEntity> =
+    listOf(
+        CategoryEntity(
+            id = "food",
+            name = "餐饮",
+            type = "expense",
+            isFixedExpense = false,
+            sortOrder = 10,
+            isArchived = false,
+        ),
+        CategoryEntity(
+            id = "subscription",
+            name = "会员订阅",
+            type = "expense",
+            isFixedExpense = true,
+            sortOrder = 20,
+            isArchived = false,
+        ),
+        CategoryEntity(
+            id = "salary",
+            name = "工资",
+            type = "income",
+            isFixedExpense = false,
+            sortOrder = 30,
+            isArchived = false,
+        ),
+        CategoryEntity(
+            id = "investment-input",
+            name = "投资投入",
+            type = "investment",
+            isFixedExpense = false,
+            sortOrder = 40,
+            isArchived = false,
+        ),
+    )
 
 private fun defaultAccounts(now: Long): List<AccountEntity> =
     listOf(

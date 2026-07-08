@@ -131,6 +131,55 @@ class LedgerCalculatorTest {
         assertEquals(Money.cents(-1_750), LedgerCalculator.investmentGainLoss(fund))
     }
 
+    @Test
+    fun monthlyFixedExpenseOnlyIncludesExpenseInFixedCategories() {
+        val transactions = listOf(
+            transaction(type = TransactionType.EXPENSE, amount = 1_500, categoryId = "subscription"),
+            transaction(type = TransactionType.EXPENSE, amount = 3_000, categoryId = "food"),
+            transaction(type = TransactionType.REFUND, amount = 500, categoryId = "subscription"),
+            transaction(
+                type = TransactionType.EXPENSE,
+                amount = 9_999,
+                categoryId = "subscription",
+                date = LocalDate.of(2026, 6, 30),
+            ),
+        )
+
+        val fixedExpense = LedgerCalculator.monthlyFixedExpense(
+            transactions = transactions,
+            fixedExpenseCategoryIds = setOf("subscription"),
+            month = month,
+        )
+
+        assertEquals(Money.cents(1_000), fixedExpense)
+    }
+
+    @Test
+    fun monthlyInvestmentInputOnlyIncludesInvestmentBuyInMonth() {
+        val transactions = listOf(
+            transaction(type = TransactionType.INVESTMENT_BUY, amount = 2_000),
+            transaction(type = TransactionType.INVESTMENT_BUY, amount = 3_000),
+            transaction(type = TransactionType.EXPENSE, amount = 4_000),
+            transaction(
+                type = TransactionType.INVESTMENT_BUY,
+                amount = 9_999,
+                date = LocalDate.of(2026, 6, 30),
+            ),
+        )
+
+        assertEquals(Money.cents(5_000), LedgerCalculator.monthlyInvestmentInput(transactions, month))
+    }
+
+    @Test
+    fun totalInvestmentGainLossSumsAllInvestmentAssets() {
+        val investments = listOf(
+            investment(id = "fund", principal = 20_000, currentValue = 21_500),
+            investment(id = "gold", principal = 10_000, currentValue = 9_200),
+        )
+
+        assertEquals(Money.cents(700), LedgerCalculator.totalInvestmentGainLoss(investments))
+    }
+
     private fun assetAccount(
         id: String = "asset",
         type: AccountType = AccountType.BANK_CARD,
@@ -157,6 +206,7 @@ class LedgerCalculatorTest {
         amount: Long,
         accountId: String = "asset",
         targetAccountId: String? = null,
+        categoryId: String? = null,
         investmentAssetId: String? = null,
         date: LocalDate = LocalDate.of(2026, 7, 7),
     ) = Transaction(
@@ -165,7 +215,7 @@ class LedgerCalculatorTest {
         amount = Money.cents(amount),
         accountId = accountId,
         targetAccountId = targetAccountId,
-        categoryId = null,
+        categoryId = categoryId,
         investmentAssetId = investmentAssetId,
         date = date,
     )

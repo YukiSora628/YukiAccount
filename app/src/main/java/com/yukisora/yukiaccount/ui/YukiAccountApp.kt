@@ -241,6 +241,27 @@ private fun DashboardScreen(
             }
         }
         item {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                SummaryCard(
+                    title = "固定支出",
+                    value = state.dashboard.monthlyFixedExpense.formatCurrency(),
+                    modifier = Modifier.weight(1f),
+                )
+                SummaryCard(
+                    title = "投资投入",
+                    value = state.dashboard.monthlyInvestmentInput.formatCurrency(),
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+        item {
+            SummaryCard(
+                title = "投资浮盈浮亏",
+                value = state.dashboard.investmentGainLoss.formatCurrency(),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        item {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("快捷操作", style = MaterialTheme.typography.titleMedium)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

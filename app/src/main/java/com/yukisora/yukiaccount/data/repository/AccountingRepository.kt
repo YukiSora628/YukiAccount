@@ -16,10 +16,12 @@ import com.yukisora.yukiaccount.domain.model.AccountType
 import com.yukisora.yukiaccount.domain.model.InvestmentAsset
 import com.yukisora.yukiaccount.domain.model.InvestmentType
 import com.yukisora.yukiaccount.domain.model.Money
+import com.yukisora.yukiaccount.domain.model.RecurringFrequency
 import com.yukisora.yukiaccount.domain.model.Transaction
 import com.yukisora.yukiaccount.domain.model.TransactionType
 import com.yukisora.yukiaccount.domain.service.LedgerCalculator
 import com.yukisora.yukiaccount.domain.service.RecurringGenerator
+import com.yukisora.yukiaccount.domain.service.RecurringRuleFactory
 import com.yukisora.yukiaccount.domain.service.TransactionFactory
 import java.time.LocalDate
 import java.time.YearMonth
@@ -138,6 +140,50 @@ class AccountingRepository(
                 date = LocalDate.now(),
                 note = note,
             )
+        )
+    }
+
+    suspend fun addSubscriptionRule(
+        name: String,
+        amount: Money,
+        accountId: String,
+        frequency: RecurringFrequency,
+        startDate: LocalDate = LocalDate.now(),
+    ) {
+        val now = clock()
+        database.recurringRuleDao().upsert(
+            RecurringRuleFactory.subscriptionExpense(
+                id = UUID.randomUUID().toString(),
+                name = name,
+                amount = amount,
+                accountId = accountId,
+                categoryId = "subscription",
+                frequency = frequency,
+                startDate = startDate,
+            ).toEntity(now)
+        )
+    }
+
+    suspend fun addInvestmentBuyRule(
+        name: String,
+        amount: Money,
+        accountId: String,
+        investmentAssetId: String,
+        frequency: RecurringFrequency,
+        startDate: LocalDate = LocalDate.now(),
+    ) {
+        val now = clock()
+        database.recurringRuleDao().upsert(
+            RecurringRuleFactory.investmentBuy(
+                id = UUID.randomUUID().toString(),
+                name = name,
+                amount = amount,
+                accountId = accountId,
+                investmentAssetId = investmentAssetId,
+                categoryId = "investment-input",
+                frequency = frequency,
+                startDate = startDate,
+            ).toEntity(now)
         )
     }
 

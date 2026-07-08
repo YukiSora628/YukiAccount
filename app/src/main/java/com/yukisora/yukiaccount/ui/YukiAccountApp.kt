@@ -45,6 +45,7 @@ import com.yukisora.yukiaccount.domain.model.Account
 import com.yukisora.yukiaccount.domain.model.AccountType
 import com.yukisora.yukiaccount.domain.model.InvestmentAsset
 import com.yukisora.yukiaccount.domain.model.Money
+import com.yukisora.yukiaccount.domain.model.RecurringFrequency
 import com.yukisora.yukiaccount.domain.model.Transaction
 import com.yukisora.yukiaccount.domain.model.TransactionType
 import com.yukisora.yukiaccount.domain.service.LedgerCalculator
@@ -65,6 +66,7 @@ private enum class EntryDialog {
     CREDIT_CARD_REPAYMENT,
     INVESTMENT_BUY,
     VALUATION,
+    RECURRING_RULE,
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -153,6 +155,7 @@ fun YukiAccountApp(viewModel: AppViewModel = viewModel()) {
                 onImport = {
                     importLauncher.launch(arrayOf("application/json", "text/plain", "*/*"))
                 },
+                onCreateRecurringRule = { dialog = EntryDialog.RECURRING_RULE },
             )
         }
     }
@@ -193,6 +196,19 @@ fun YukiAccountApp(viewModel: AppViewModel = viewModel()) {
             onDismiss = { dialog = null },
             onConfirm = { amount, sourceAccount, creditCard, note ->
                 viewModel.addCreditCardRepayment(amount, sourceAccount, creditCard, note)
+                dialog = null
+            },
+        )
+        EntryDialog.RECURRING_RULE -> RecurringRuleDialog(
+            accounts = state.accounts.filter { it.type != AccountType.CREDIT_CARD },
+            investments = state.investments,
+            onDismiss = { dialog = null },
+            onConfirmSubscription = { name, amount, account, frequency ->
+                viewModel.addSubscriptionRule(name, amount, account, frequency)
+                dialog = null
+            },
+            onConfirmInvestmentBuy = { name, amount, account, investment, frequency ->
+                viewModel.addInvestmentBuyRule(name, amount, account, investment, frequency)
                 dialog = null
             },
         )
@@ -419,6 +435,7 @@ private fun SettingsScreen(
     padding: PaddingValues,
     onExport: () -> Unit,
     onImport: () -> Unit,
+    onCreateRecurringRule: () -> Unit,
 ) {
     LazyColumn(
         modifier = Modifier
@@ -431,7 +448,20 @@ private fun SettingsScreen(
             Text("设置", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
         }
         item { InfoCard("分类管理", "管理消费、收入、固定支出和投资投入分类。") }
-        item { InfoCard("周期规则", "管理会员订阅、自动续费和定投规则。") }
+        item {
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Text("周期规则", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text("管理会员订阅、自动续费和定投规则。", style = MaterialTheme.typography.bodyMedium)
+                    Button(onClick = onCreateRecurringRule, modifier = Modifier.fillMaxWidth()) {
+                        Text("新增周期规则")
+                    }
+                }
+            }
+        }
         item {
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(
@@ -504,6 +534,80 @@ private fun MoneyEntryDialog(
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("取消") }
         },
+    )
+}
+
+@Composable
+private fun RecurringRuleDialog(
+    accounts: List<Account>,
+    investments: List<InvestmentAsset>,
+    onDismiss: () -> Unit,
+    onConfirmSubscription: (String, Money, Account, RecurringFrequency) -> Unit,
+    onConfirmInvestmentBuy: (String, Money, Account, InvestmentAsset, RecurringFrequency) -> Unit,
+) {
+    if (accounts.isEmpty()) {
+        SimpleMessageDialog(title = "新增周期规则", message = "需要至少一个资产账户", onDismiss = onDismiss)
+        return
+    }
+
+    var isInvestmentRule by remember { mutableStateOf(false) }
+    var name by remember { mutableStateOf("") }
+    var amountText by remember { mutableStateOf("") }
+    var selectedAccount by remember(accounts) { mutableStateOf(accounts.first()) }
+    var selectedInvestment by remember(investments) { mutableStateOf(investments.firstOrNull()) }
+    var frequency by remember { mutableStateOf(RecurringFrequency.MONTHLY) }
+    val amount = amountText.toMoneyOrNull()
+    val canSave = name.isNotBlank() && amount != null && (!isInvestmentRule || selectedInvestment != null)
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("新增周期规则") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        onClick = { isInvestmentRule = false },
+                        modifier = Modifier.weight(1f),
+                    ) { Text("订阅") }
+                    Button(
+                        onClick = { isInvestmentRule = true },
+                        enabled = investments.isNotEmpty(),
+                        modifier = Modifier.weight(1f),
+                    ) { Text("定投") }
+                }
+                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("名称") })
+                OutlinedTextField(value = amountText, onValueChange = { amountText = it }, label = { Text("金额") })
+                AccountSelector(accounts = accounts, selected = selectedAccount, onSelected = { selectedAccount = it })
+                if (isInvestmentRule && selectedInvestment != null) {
+                    InvestmentSelector(
+                        investments = investments,
+                        selected = requireNotNull(selectedInvestment),
+                        onSelected = { selectedInvestment = it },
+                    )
+                }
+                FrequencySelector(selected = frequency, onSelected = { frequency = it })
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = canSave,
+                onClick = {
+                    val value = requireNotNull(amount)
+                    if (isInvestmentRule) {
+                        onConfirmInvestmentBuy(
+                            name,
+                            value,
+                            selectedAccount,
+                            requireNotNull(selectedInvestment),
+                            frequency,
+                        )
+                    } else {
+                        onConfirmSubscription(name, value, selectedAccount, frequency)
+                    }
+                },
+            ) { Text("保存规则") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
     )
 }
 
@@ -638,6 +742,36 @@ private fun SimpleMessageDialog(title: String, message: String, onDismiss: () ->
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+private fun FrequencySelector(
+    selected: RecurringFrequency,
+    onSelected: (RecurringFrequency) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
+        OutlinedTextField(
+            value = selected.label(),
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("频率") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
+            modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable, enabled = true),
+        )
+        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            RecurringFrequency.entries.forEach { frequency ->
+                DropdownMenuItem(
+                    text = { Text(frequency.label()) },
+                    onClick = {
+                        onSelected(frequency)
+                        expanded = false
+                    },
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
 private fun AccountSelector(
     accounts: List<Account>,
     selected: Account,
@@ -706,4 +840,11 @@ private fun TransactionType.label(): String =
         TransactionType.TRANSFER -> "转账"
         TransactionType.CREDIT_CARD_REPAYMENT -> "信用卡还款"
         TransactionType.INVESTMENT_BUY -> "投资买入"
+    }
+
+private fun RecurringFrequency.label(): String =
+    when (this) {
+        RecurringFrequency.DAILY -> "每天"
+        RecurringFrequency.WEEKLY -> "每周"
+        RecurringFrequency.MONTHLY -> "每月"
     }

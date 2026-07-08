@@ -10,6 +10,7 @@ import com.yukisora.yukiaccount.data.repository.DashboardSummary
 import com.yukisora.yukiaccount.domain.model.Account
 import com.yukisora.yukiaccount.domain.model.InvestmentAsset
 import com.yukisora.yukiaccount.domain.model.Money
+import com.yukisora.yukiaccount.domain.model.RecurringFrequency
 import com.yukisora.yukiaccount.domain.model.Transaction
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -69,6 +70,24 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     fun addCreditCardRepayment(amount: Money, sourceAccount: Account, creditCardAccount: Account, note: String) {
         viewModelScope.launch {
             repository.addCreditCardRepayment(amount, sourceAccount.id, creditCardAccount.id, note)
+        }
+    }
+
+    fun addSubscriptionRule(name: String, amount: Money, account: Account, frequency: RecurringFrequency) {
+        viewModelScope.launch {
+            repository.addSubscriptionRule(name, amount, account.id, frequency)
+        }
+    }
+
+    fun addInvestmentBuyRule(
+        name: String,
+        amount: Money,
+        account: Account,
+        investment: InvestmentAsset,
+        frequency: RecurringFrequency,
+    ) {
+        viewModelScope.launch {
+            repository.addInvestmentBuyRule(name, amount, account.id, investment.id, frequency)
         }
     }
 

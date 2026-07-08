@@ -3,6 +3,7 @@ package com.yukisora.yukiaccount.domain.service
 import com.yukisora.yukiaccount.domain.model.Money
 import com.yukisora.yukiaccount.domain.model.RecurringFrequency
 import com.yukisora.yukiaccount.domain.model.RecurringRule
+import com.yukisora.yukiaccount.domain.model.SkippedOccurrence
 import com.yukisora.yukiaccount.domain.model.TransactionType
 import java.time.LocalDate
 
@@ -50,4 +51,28 @@ object RecurringRuleFactory {
             startDate = startDate,
             nextOccurrenceDate = startDate,
         )
+
+    fun skipNextOccurrence(rule: RecurringRule, reason: String): RecurringSkipResult {
+        val occurrenceDate = rule.nextOccurrenceDate
+        return RecurringSkipResult(
+            skippedOccurrence = SkippedOccurrence(
+                recurringRuleId = rule.id,
+                occurrenceDate = occurrenceDate,
+                reason = reason,
+            ),
+            updatedRule = rule.copy(nextOccurrenceDate = occurrenceDate.next(rule.frequency)),
+        )
+    }
+
+    private fun LocalDate.next(frequency: RecurringFrequency): LocalDate =
+        when (frequency) {
+            RecurringFrequency.DAILY -> plusDays(1)
+            RecurringFrequency.WEEKLY -> plusWeeks(1)
+            RecurringFrequency.MONTHLY -> plusMonths(1)
+        }
 }
+
+data class RecurringSkipResult(
+    val skippedOccurrence: SkippedOccurrence,
+    val updatedRule: RecurringRule,
+)

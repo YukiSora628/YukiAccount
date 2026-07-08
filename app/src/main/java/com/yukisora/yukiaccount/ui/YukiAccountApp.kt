@@ -47,6 +47,7 @@ import com.yukisora.yukiaccount.domain.model.InvestmentAsset
 import com.yukisora.yukiaccount.domain.model.InvestmentType
 import com.yukisora.yukiaccount.domain.model.Money
 import com.yukisora.yukiaccount.domain.model.RecurringFrequency
+import com.yukisora.yukiaccount.domain.model.RecurringRule
 import com.yukisora.yukiaccount.domain.model.Transaction
 import com.yukisora.yukiaccount.domain.model.TransactionType
 import com.yukisora.yukiaccount.domain.service.LedgerCalculator
@@ -163,6 +164,7 @@ fun YukiAccountApp(viewModel: AppViewModel = viewModel()) {
             )
             AppTab.SETTINGS -> SettingsScreen(
                 padding = padding,
+                recurringRules = state.recurringRules,
                 onExport = {
                     exportLauncher.launch("yuki-account-backup-${LocalDate.now()}.json")
                 },
@@ -170,6 +172,7 @@ fun YukiAccountApp(viewModel: AppViewModel = viewModel()) {
                     importLauncher.launch(arrayOf("application/json", "text/plain", "*/*"))
                 },
                 onCreateRecurringRule = { dialog = EntryDialog.RECURRING_RULE },
+                onSkipNextOccurrence = viewModel::skipNextRecurringOccurrence,
             )
         }
     }
@@ -532,9 +535,11 @@ private fun InvestmentListScreen(
 @Composable
 private fun SettingsScreen(
     padding: PaddingValues,
+    recurringRules: List<RecurringRule>,
     onExport: () -> Unit,
     onImport: () -> Unit,
     onCreateRecurringRule: () -> Unit,
+    onSkipNextOccurrence: (RecurringRule) -> Unit,
 ) {
     LazyColumn(
         modifier = Modifier
@@ -578,6 +583,59 @@ private fun SettingsScreen(
                         }
                     }
                 }
+            }
+        }
+        item {
+            RecurringRulesSection(
+                recurringRules = recurringRules,
+                onSkipNextOccurrence = onSkipNextOccurrence,
+            )
+        }
+    }
+}
+
+@Composable
+private fun RecurringRulesSection(
+    recurringRules: List<RecurringRule>,
+    onSkipNextOccurrence: (RecurringRule) -> Unit,
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text("周期规则列表", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            if (recurringRules.isEmpty()) {
+                Text("暂无周期规则。", style = MaterialTheme.typography.bodyMedium)
+            } else {
+                recurringRules.forEach { rule ->
+                    RecurringRuleRow(rule = rule, onSkipNextOccurrence = onSkipNextOccurrence)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RecurringRuleRow(
+    rule: RecurringRule,
+    onSkipNextOccurrence: (RecurringRule) -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(rule.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            Text(
+                "${rule.transactionType.label()} / ${rule.frequency.label()} / 下期 ${rule.nextOccurrenceDate}",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Button(onClick = { onSkipNextOccurrence(rule) }, modifier = Modifier.fillMaxWidth()) {
+                Text("跳过下一期")
             }
         }
     }

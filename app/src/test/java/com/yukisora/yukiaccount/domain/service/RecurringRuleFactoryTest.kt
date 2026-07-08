@@ -52,4 +52,24 @@ class RecurringRuleFactoryTest {
         assertEquals(RecurringFrequency.DAILY, rule.frequency)
         assertEquals(LocalDate.of(2026, 7, 8), rule.nextOccurrenceDate)
     }
+
+    @Test
+    fun skipNextOccurrenceMarksCurrentNextDateAndAdvancesRule() {
+        val rule = RecurringRuleFactory.subscriptionExpense(
+            id = "rule-subscription",
+            name = "video",
+            amount = Money.cents(1_500),
+            accountId = "bank",
+            categoryId = "subscription",
+            frequency = RecurringFrequency.MONTHLY,
+            startDate = LocalDate.of(2026, 7, 8),
+        )
+
+        val result = RecurringRuleFactory.skipNextOccurrence(rule, reason = "pause")
+
+        assertEquals(rule.id, result.skippedOccurrence.recurringRuleId)
+        assertEquals(LocalDate.of(2026, 7, 8), result.skippedOccurrence.occurrenceDate)
+        assertEquals("pause", result.skippedOccurrence.reason)
+        assertEquals(LocalDate.of(2026, 8, 8), result.updatedRule.nextOccurrenceDate)
+    }
 }

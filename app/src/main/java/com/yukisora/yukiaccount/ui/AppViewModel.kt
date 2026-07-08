@@ -13,6 +13,7 @@ import com.yukisora.yukiaccount.domain.model.InvestmentAsset
 import com.yukisora.yukiaccount.domain.model.InvestmentType
 import com.yukisora.yukiaccount.domain.model.Money
 import com.yukisora.yukiaccount.domain.model.RecurringFrequency
+import com.yukisora.yukiaccount.domain.model.RecurringRule
 import com.yukisora.yukiaccount.domain.model.Transaction
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -29,19 +30,24 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     val uiState: StateFlow<AccountingUiState> =
         combine(
-            repository.observeDashboard(),
-            repository.observeTransactions(),
-            repository.observeAccounts(),
-            repository.observeInvestments(),
-            generatedRecurringTransactionIds,
-        ) { dashboard, transactions, accounts, investments, recurringTransactionIds ->
-            AccountingUiState(
-                dashboard = dashboard,
-                transactions = transactions,
-                accounts = accounts,
-                investments = investments,
-                recurringGenerationCount = recurringTransactionIds.size,
-            )
+            combine(
+                repository.observeDashboard(),
+                repository.observeTransactions(),
+                repository.observeAccounts(),
+                repository.observeInvestments(),
+                generatedRecurringTransactionIds,
+            ) { dashboard, transactions, accounts, investments, recurringTransactionIds ->
+                AccountingUiState(
+                    dashboard = dashboard,
+                    transactions = transactions,
+                    accounts = accounts,
+                    investments = investments,
+                    recurringGenerationCount = recurringTransactionIds.size,
+                )
+            },
+            repository.observeRecurringRules(),
+        ) { state, recurringRules ->
+            state.copy(recurringRules = recurringRules)
         }.stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
@@ -133,6 +139,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun skipNextRecurringOccurrence(rule: RecurringRule) {
+        viewModelScope.launch {
+            repository.skipNextRecurringOccurrence(rule.id)
+        }
+    }
+
     fun updateInvestmentValue(investment: InvestmentAsset, value: Money) {
         viewModelScope.launch {
             repository.updateInvestmentValue(investment.id, value)
@@ -167,5 +179,6 @@ data class AccountingUiState(
     val transactions: List<Transaction> = emptyList(),
     val accounts: List<Account> = emptyList(),
     val investments: List<InvestmentAsset> = emptyList(),
+    val recurringRules: List<RecurringRule> = emptyList(),
     val recurringGenerationCount: Int = 0,
 )

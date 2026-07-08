@@ -78,6 +78,9 @@ interface RecurringRuleDao {
     @Query("SELECT * FROM recurring_rules ORDER BY createdAt ASC")
     suspend fun allRules(): List<RecurringRuleEntity>
 
+    @Query("SELECT * FROM recurring_rules WHERE id = :id LIMIT 1")
+    suspend fun getRule(id: String): RecurringRuleEntity?
+
     @Query("SELECT * FROM skipped_occurrences")
     suspend fun skippedOccurrences(): List<SkippedOccurrenceEntity>
 

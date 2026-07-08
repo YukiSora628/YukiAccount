@@ -17,6 +17,7 @@ import com.yukisora.yukiaccount.domain.model.InvestmentAsset
 import com.yukisora.yukiaccount.domain.model.InvestmentType
 import com.yukisora.yukiaccount.domain.model.Money
 import com.yukisora.yukiaccount.domain.model.RecurringFrequency
+import com.yukisora.yukiaccount.domain.model.RecurringRule
 import com.yukisora.yukiaccount.domain.model.Transaction
 import com.yukisora.yukiaccount.domain.model.TransactionType
 import com.yukisora.yukiaccount.domain.service.AccountFactory
@@ -85,6 +86,9 @@ class AccountingRepository(
 
     fun observeInvestments(): Flow<List<InvestmentAsset>> =
         database.investmentDao().observeActiveInvestments().map { entities -> entities.map { it.toDomain() } }
+
+    fun observeRecurringRules(): Flow<List<RecurringRule>> =
+        database.recurringRuleDao().observeRules().map { entities -> entities.map { it.toDomain() } }
 
     suspend fun addInvestmentAsset(
         name: String,
@@ -265,6 +269,22 @@ class AccountingRepository(
                 startDate = startDate,
             ).toEntity(now)
         )
+    }
+
+    suspend fun skipNextRecurringOccurrence(ruleId: String, reason: String = "") {
+        database.withTransaction {
+            val now = clock()
+            val ruleEntity = requireNotNull(database.recurringRuleDao().getRule(ruleId)) {
+                "Recurring rule not found: $ruleId"
+            }
+            val result = RecurringRuleFactory.skipNextOccurrence(ruleEntity.toDomain(), reason)
+            database.recurringRuleDao().insertSkipped(
+                result.skippedOccurrence.toEntity(UUID.randomUUID().toString(), now)
+            )
+            database.recurringRuleDao().update(
+                result.updatedRule.toEntity(now).copy(createdAt = ruleEntity.createdAt)
+            )
+        }
     }
 
     suspend fun updateInvestmentValue(investmentAssetId: String, value: Money, date: LocalDate = LocalDate.now()) {

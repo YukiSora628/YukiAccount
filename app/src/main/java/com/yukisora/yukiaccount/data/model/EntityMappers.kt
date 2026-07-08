@@ -133,3 +133,12 @@ fun SkippedOccurrenceEntity.toDomain(): SkippedOccurrence =
         occurrenceDate = occurrenceDate,
         reason = reason,
     )
+
+fun SkippedOccurrence.toEntity(id: String, now: Long): SkippedOccurrenceEntity =
+    SkippedOccurrenceEntity(
+        id = id,
+        recurringRuleId = recurringRuleId,
+        occurrenceDate = occurrenceDate,
+        reason = reason,
+        createdAt = now,
+    )

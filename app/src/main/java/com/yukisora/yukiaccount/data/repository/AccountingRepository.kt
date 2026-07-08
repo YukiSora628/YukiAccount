@@ -116,6 +116,32 @@ class AccountingRepository(
         )
     }
 
+    suspend fun addRefund(amount: Money, accountId: String, note: String, categoryId: String? = "food") {
+        addTransaction(
+            TransactionFactory.refund(
+                id = UUID.randomUUID().toString(),
+                amount = amount,
+                accountId = accountId,
+                categoryId = categoryId,
+                date = LocalDate.now(),
+                note = note,
+            )
+        )
+    }
+
+    suspend fun addTransfer(amount: Money, sourceAccountId: String, targetAccountId: String, note: String) {
+        addTransaction(
+            TransactionFactory.transfer(
+                id = UUID.randomUUID().toString(),
+                amount = amount,
+                sourceAccountId = sourceAccountId,
+                targetAccountId = targetAccountId,
+                date = LocalDate.now(),
+                note = note,
+            )
+        )
+    }
+
     suspend fun addInvestmentBuy(amount: Money, accountId: String, investmentAssetId: String, note: String) {
         addTransaction(
             Transaction(

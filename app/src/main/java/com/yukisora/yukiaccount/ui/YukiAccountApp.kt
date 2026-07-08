@@ -63,6 +63,8 @@ private enum class AppTab(val title: String) {
 private enum class EntryDialog {
     EXPENSE,
     INCOME,
+    REFUND,
+    TRANSFER,
     CREDIT_CARD_REPAYMENT,
     INVESTMENT_BUY,
     VALUATION,
@@ -178,6 +180,24 @@ fun YukiAccountApp(viewModel: AppViewModel = viewModel()) {
             onDismiss = { dialog = null },
             onConfirm = { amount, account, note ->
                 viewModel.addIncome(amount, account, note)
+                dialog = null
+            },
+        )
+        EntryDialog.REFUND -> MoneyEntryDialog(
+            title = "记一笔退款",
+            accounts = state.accounts,
+            confirmText = "保存退款",
+            onDismiss = { dialog = null },
+            onConfirm = { amount, account, note ->
+                viewModel.addRefund(amount, account, note)
+                dialog = null
+            },
+        )
+        EntryDialog.TRANSFER -> TransferDialog(
+            accounts = state.accounts.filter { it.type != AccountType.CREDIT_CARD },
+            onDismiss = { dialog = null },
+            onConfirm = { amount, sourceAccount, targetAccount, note ->
+                viewModel.addTransfer(amount, sourceAccount, targetAccount, note)
                 dialog = null
             },
         )
@@ -320,6 +340,18 @@ private fun DashboardScreen(
                         state.accounts.any { it.type == AccountType.CREDIT_CARD },
                     modifier = Modifier.fillMaxWidth(),
                 ) { Text("信用卡还款") }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        onClick = { onOpenDialog(EntryDialog.REFUND) },
+                        enabled = state.accounts.isNotEmpty(),
+                        modifier = Modifier.weight(1f),
+                    ) { Text("退款") }
+                    Button(
+                        onClick = { onOpenDialog(EntryDialog.TRANSFER) },
+                        enabled = state.accounts.count { it.type != AccountType.CREDIT_CARD } >= 2,
+                        modifier = Modifier.weight(1f),
+                    ) { Text("转账") }
+                }
             }
         }
         item {
@@ -534,6 +566,56 @@ private fun MoneyEntryDialog(
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("取消") }
         },
+    )
+}
+
+@Composable
+private fun TransferDialog(
+    accounts: List<Account>,
+    onDismiss: () -> Unit,
+    onConfirm: (Money, Account, Account, String) -> Unit,
+) {
+    if (accounts.size < 2) {
+        SimpleMessageDialog(title = "账户转账", message = "需要至少两个资产账户", onDismiss = onDismiss)
+        return
+    }
+    var amountText by remember { mutableStateOf("") }
+    var note by remember { mutableStateOf("") }
+    var selectedSource by remember(accounts) { mutableStateOf(accounts.first()) }
+    var selectedTarget by remember(accounts) { mutableStateOf(accounts.first { it.id != selectedSource.id }) }
+    val amount = amountText.toMoneyOrNull()
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("账户转账") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(value = amountText, onValueChange = { amountText = it }, label = { Text("转账金额") })
+                AccountSelector(
+                    accounts = accounts,
+                    selected = selectedSource,
+                    onSelected = { account ->
+                        selectedSource = account
+                        if (selectedTarget.id == account.id) {
+                            selectedTarget = accounts.first { it.id != account.id }
+                        }
+                    },
+                )
+                AccountSelector(
+                    accounts = accounts.filter { it.id != selectedSource.id },
+                    selected = selectedTarget,
+                    onSelected = { selectedTarget = it },
+                )
+                OutlinedTextField(value = note, onValueChange = { note = it }, label = { Text("备注") })
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = amount != null && selectedSource.id != selectedTarget.id,
+                onClick = { onConfirm(requireNotNull(amount), selectedSource, selectedTarget, note) },
+            ) { Text("保存转账") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
     )
 }
 

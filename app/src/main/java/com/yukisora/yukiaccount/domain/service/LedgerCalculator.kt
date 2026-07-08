@@ -23,9 +23,15 @@ object LedgerCalculator {
                     account.copy(balance = account.balance - transaction.amount)
                 }
             }
-            TransactionType.INCOME,
-            TransactionType.REFUND -> accounts.updateAccount(transaction.accountId) { account ->
+            TransactionType.INCOME -> accounts.updateAccount(transaction.accountId) { account ->
                 account.copy(balance = account.balance + transaction.amount)
+            }
+            TransactionType.REFUND -> accounts.updateAccount(transaction.accountId) { account ->
+                if (account.type == AccountType.CREDIT_CARD) {
+                    account.copy(balance = account.balance - transaction.amount)
+                } else {
+                    account.copy(balance = account.balance + transaction.amount)
+                }
             }
             TransactionType.TRANSFER -> accounts
                 .updateAccount(transaction.accountId) { it.copy(balance = it.balance - transaction.amount) }

@@ -61,6 +61,18 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun addRefund(amount: Money, account: Account, note: String) {
+        viewModelScope.launch {
+            repository.addRefund(amount, account.id, note)
+        }
+    }
+
+    fun addTransfer(amount: Money, sourceAccount: Account, targetAccount: Account, note: String) {
+        viewModelScope.launch {
+            repository.addTransfer(amount, sourceAccount.id, targetAccount.id, note)
+        }
+    }
+
     fun addInvestmentBuy(amount: Money, account: Account, investment: InvestmentAsset, note: String) {
         viewModelScope.launch {
             repository.addInvestmentBuy(amount, account.id, investment.id, note)

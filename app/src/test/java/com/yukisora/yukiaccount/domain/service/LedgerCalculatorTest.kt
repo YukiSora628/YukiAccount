@@ -47,6 +47,22 @@ class LedgerCalculatorTest {
     }
 
     @Test
+    fun creditCardRefundReducesUnpaidLiability() {
+        val card = creditCard(balance = 5_000)
+        val result = LedgerCalculator.applyTransaction(
+            accounts = listOf(card),
+            investments = emptyList(),
+            transaction = transaction(
+                type = TransactionType.REFUND,
+                amount = 1_200,
+                accountId = card.id,
+            )
+        )
+
+        assertEquals(Money.cents(3_800), result.accounts.single().balance)
+    }
+
+    @Test
     fun creditCardRepaymentReducesSourceAssetAndCardLiabilityButNotConsumption() {
         val bank = assetAccount(id = "bank", balance = 20_000)
         val card = creditCard(id = "card", balance = 8_000)

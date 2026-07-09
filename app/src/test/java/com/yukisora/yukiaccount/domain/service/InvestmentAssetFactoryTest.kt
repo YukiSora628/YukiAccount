@@ -49,4 +49,30 @@ class InvestmentAssetFactoryTest {
         assertEquals(asset.lastValuationDate, archived.lastValuationDate)
         assertEquals(true, archived.isArchived)
     }
+
+    @Test
+    fun updateValuationKeepsPrincipalAndUpdatesCurrentValueAndDate() {
+        val asset = InvestmentAssetFactory.asset(
+            id = "fund",
+            name = "基金",
+            type = InvestmentType.FUND,
+            principal = Money.cents(30_000),
+            currentValue = Money.cents(31_000),
+            valuationDate = LocalDate.of(2026, 7, 8),
+        )
+
+        val updated = InvestmentAssetFactory.updateValuation(
+            asset = asset,
+            currentValue = Money.cents(32_500),
+            valuationDate = LocalDate.of(2026, 7, 10),
+        )
+
+        assertEquals(asset.id, updated.id)
+        assertEquals(asset.name, updated.name)
+        assertEquals(asset.type, updated.type)
+        assertEquals(Money.cents(30_000), updated.principal)
+        assertEquals(Money.cents(32_500), updated.currentValue)
+        assertEquals(LocalDate.of(2026, 7, 10), updated.lastValuationDate)
+        assertEquals(asset.isArchived, updated.isArchived)
+    }
 }

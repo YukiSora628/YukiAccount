@@ -710,6 +710,10 @@ private fun InvestmentListScreen(
                             "本金 ${investment.principal.formatCurrency()} / 市值 ${investment.currentValue.formatCurrency()} / 浮盈浮亏 ${gainLoss.formatCurrency()}",
                             style = MaterialTheme.typography.bodyMedium,
                         )
+                        Text(
+                            "最近市值 ${investment.lastValuationDate?.toString() ?: "未更新"}",
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
                         Button(onClick = { onArchiveInvestment(investment) }, modifier = Modifier.fillMaxWidth()) {
                             Text("归档投资资产")
                         }

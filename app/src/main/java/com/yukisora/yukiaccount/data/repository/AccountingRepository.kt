@@ -373,18 +373,13 @@ class AccountingRepository(
             val asset = requireNotNull(database.investmentDao().getAsset(investmentAssetId)) {
                 "Investment asset not found: $investmentAssetId"
             }
+            val updatedAsset = InvestmentAssetFactory.updateValuation(
+                asset = asset.toDomain(),
+                currentValue = value,
+                valuationDate = date,
+            )
             database.investmentDao().updateAsset(
-                InvestmentAssetEntity(
-                    id = asset.id,
-                    name = asset.name,
-                    type = asset.type,
-                    principalCents = asset.principalCents,
-                    currentValueCents = value.cents,
-                    lastValuationDate = date,
-                    isArchived = asset.isArchived,
-                    createdAt = asset.createdAt,
-                    updatedAt = now,
-                )
+                updatedAsset.toEntity(now).copy(createdAt = asset.createdAt)
             )
             database.investmentDao().insertValuation(
                 ValuationSnapshotEntity(

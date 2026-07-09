@@ -25,4 +25,14 @@ object InvestmentAssetFactory {
 
     fun archive(asset: InvestmentAsset): InvestmentAsset =
         asset.copy(isArchived = true)
+
+    fun updateValuation(
+        asset: InvestmentAsset,
+        currentValue: Money,
+        valuationDate: LocalDate,
+    ): InvestmentAsset =
+        asset.copy(
+            currentValue = currentValue,
+            lastValuationDate = valuationDate,
+        )
 }

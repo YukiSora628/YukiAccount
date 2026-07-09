@@ -95,4 +95,24 @@ object TransactionFactory {
             date = date,
             note = note,
         )
+
+    fun investmentBuy(
+        id: String,
+        amount: Money,
+        accountId: String,
+        investmentAssetId: String,
+        categoryId: String?,
+        date: LocalDate,
+        note: String,
+    ): Transaction =
+        Transaction(
+            id = id,
+            type = TransactionType.INVESTMENT_BUY,
+            amount = amount,
+            accountId = accountId,
+            categoryId = categoryId,
+            investmentAssetId = investmentAssetId,
+            date = date,
+            note = note,
+        )
 }

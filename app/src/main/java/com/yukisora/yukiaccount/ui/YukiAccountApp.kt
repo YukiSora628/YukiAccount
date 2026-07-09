@@ -198,8 +198,8 @@ fun YukiAccountApp(viewModel: AppViewModel = viewModel()) {
             categories = state.categories.filter { it.type == "expense" },
             confirmText = "保存支出",
             onDismiss = { dialog = null },
-            onConfirm = { amount, account, category, note ->
-                viewModel.addExpense(amount, account, category, note)
+            onConfirm = { amount, account, category, date, note ->
+                viewModel.addExpense(amount, account, category, date, note)
                 dialog = null
             },
         )
@@ -209,8 +209,8 @@ fun YukiAccountApp(viewModel: AppViewModel = viewModel()) {
             categories = state.categories.filter { it.type == "income" },
             confirmText = "保存收入",
             onDismiss = { dialog = null },
-            onConfirm = { amount, account, category, note ->
-                viewModel.addIncome(amount, account, category, note)
+            onConfirm = { amount, account, category, date, note ->
+                viewModel.addIncome(amount, account, category, date, note)
                 dialog = null
             },
         )
@@ -220,16 +220,16 @@ fun YukiAccountApp(viewModel: AppViewModel = viewModel()) {
             categories = state.categories.filter { it.type == "expense" },
             confirmText = "保存退款",
             onDismiss = { dialog = null },
-            onConfirm = { amount, account, category, note ->
-                viewModel.addRefund(amount, account, category, note)
+            onConfirm = { amount, account, category, date, note ->
+                viewModel.addRefund(amount, account, category, date, note)
                 dialog = null
             },
         )
         EntryDialog.TRANSFER -> TransferDialog(
             accounts = state.accounts.filter { it.type != AccountType.CREDIT_CARD },
             onDismiss = { dialog = null },
-            onConfirm = { amount, sourceAccount, targetAccount, note ->
-                viewModel.addTransfer(amount, sourceAccount, targetAccount, note)
+            onConfirm = { amount, sourceAccount, targetAccount, date, note ->
+                viewModel.addTransfer(amount, sourceAccount, targetAccount, date, note)
                 dialog = null
             },
         )
@@ -237,8 +237,8 @@ fun YukiAccountApp(viewModel: AppViewModel = viewModel()) {
             accounts = state.accounts.filter { it.type != AccountType.CREDIT_CARD },
             investments = state.investments,
             onDismiss = { dialog = null },
-            onConfirm = { amount, account, investment, note ->
-                viewModel.addInvestmentBuy(amount, account, investment, note)
+            onConfirm = { amount, account, investment, date, note ->
+                viewModel.addInvestmentBuy(amount, account, investment, date, note)
                 dialog = null
             },
         )
@@ -246,8 +246,8 @@ fun YukiAccountApp(viewModel: AppViewModel = viewModel()) {
             sourceAccounts = state.accounts.filter { it.type != AccountType.CREDIT_CARD },
             creditCards = state.accounts.filter { it.type == AccountType.CREDIT_CARD },
             onDismiss = { dialog = null },
-            onConfirm = { amount, sourceAccount, creditCard, note ->
-                viewModel.addCreditCardRepayment(amount, sourceAccount, creditCard, note)
+            onConfirm = { amount, sourceAccount, creditCard, date, note ->
+                viewModel.addCreditCardRepayment(amount, sourceAccount, creditCard, date, note)
                 dialog = null
             },
         )
@@ -285,8 +285,8 @@ fun YukiAccountApp(viewModel: AppViewModel = viewModel()) {
         EntryDialog.VALUATION -> ValuationDialog(
             investments = state.investments,
             onDismiss = { dialog = null },
-            onConfirm = { investment, value ->
-                viewModel.updateInvestmentValue(investment, value)
+            onConfirm = { investment, value, date ->
+                viewModel.updateInvestmentValue(investment, value, date)
                 dialog = null
             },
         )
@@ -823,17 +823,19 @@ private fun MoneyEntryDialog(
     categories: List<Category>,
     confirmText: String,
     onDismiss: () -> Unit,
-    onConfirm: (Money, Account, Category?, String) -> Unit,
+    onConfirm: (Money, Account, Category?, LocalDate, String) -> Unit,
 ) {
     if (accounts.isEmpty()) {
         SimpleMessageDialog(title = title, message = "暂无可用账户", onDismiss = onDismiss)
         return
     }
     var amountText by remember { mutableStateOf("") }
+    var dateText by remember { mutableStateOf(LocalDate.now().toString()) }
     var note by remember { mutableStateOf("") }
     var selectedAccount by remember(accounts) { mutableStateOf(accounts.first()) }
     var selectedCategory by remember(categories) { mutableStateOf(categories.firstOrNull()) }
     val amount = amountText.toMoneyOrNull()
+    val date = dateText.toLocalDateOrNull()
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -858,6 +860,7 @@ private fun MoneyEntryDialog(
                         onSelected = { selectedCategory = it },
                     )
                 }
+                DateInput(value = dateText, onValueChange = { dateText = it })
                 OutlinedTextField(
                     value = note,
                     onValueChange = { note = it },
@@ -868,8 +871,8 @@ private fun MoneyEntryDialog(
         },
         confirmButton = {
             TextButton(
-                enabled = amount != null,
-                onClick = { onConfirm(requireNotNull(amount), selectedAccount, selectedCategory, note) },
+                enabled = amount != null && date != null,
+                onClick = { onConfirm(requireNotNull(amount), selectedAccount, selectedCategory, requireNotNull(date), note) },
             ) { Text(confirmText) }
         },
         dismissButton = {
@@ -996,17 +999,19 @@ private fun AccountDialog(
 private fun TransferDialog(
     accounts: List<Account>,
     onDismiss: () -> Unit,
-    onConfirm: (Money, Account, Account, String) -> Unit,
+    onConfirm: (Money, Account, Account, LocalDate, String) -> Unit,
 ) {
     if (accounts.size < 2) {
         SimpleMessageDialog(title = "账户转账", message = "需要至少两个资产账户", onDismiss = onDismiss)
         return
     }
     var amountText by remember { mutableStateOf("") }
+    var dateText by remember { mutableStateOf(LocalDate.now().toString()) }
     var note by remember { mutableStateOf("") }
     var selectedSource by remember(accounts) { mutableStateOf(accounts.first()) }
     var selectedTarget by remember(accounts) { mutableStateOf(accounts.first { it.id != selectedSource.id }) }
     val amount = amountText.toMoneyOrNull()
+    val date = dateText.toLocalDateOrNull()
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -1029,13 +1034,14 @@ private fun TransferDialog(
                     selected = selectedTarget,
                     onSelected = { selectedTarget = it },
                 )
+                DateInput(value = dateText, onValueChange = { dateText = it })
                 OutlinedTextField(value = note, onValueChange = { note = it }, label = { Text("备注") })
             }
         },
         confirmButton = {
             TextButton(
-                enabled = amount != null && selectedSource.id != selectedTarget.id,
-                onClick = { onConfirm(requireNotNull(amount), selectedSource, selectedTarget, note) },
+                enabled = amount != null && date != null && selectedSource.id != selectedTarget.id,
+                onClick = { onConfirm(requireNotNull(amount), selectedSource, selectedTarget, requireNotNull(date), note) },
             ) { Text("保存转账") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
@@ -1121,17 +1127,19 @@ private fun CreditCardRepaymentDialog(
     sourceAccounts: List<Account>,
     creditCards: List<Account>,
     onDismiss: () -> Unit,
-    onConfirm: (Money, Account, Account, String) -> Unit,
+    onConfirm: (Money, Account, Account, LocalDate, String) -> Unit,
 ) {
     if (sourceAccounts.isEmpty() || creditCards.isEmpty()) {
         SimpleMessageDialog(title = "信用卡还款", message = "需要至少一个资产账户和一个信用卡账户", onDismiss = onDismiss)
         return
     }
     var amountText by remember { mutableStateOf("") }
+    var dateText by remember { mutableStateOf(LocalDate.now().toString()) }
     var note by remember { mutableStateOf("") }
     var selectedSource by remember(sourceAccounts) { mutableStateOf(sourceAccounts.first()) }
     var selectedCard by remember(creditCards) { mutableStateOf(creditCards.first()) }
     val amount = amountText.toMoneyOrNull()
+    val date = dateText.toLocalDateOrNull()
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -1141,13 +1149,14 @@ private fun CreditCardRepaymentDialog(
                 OutlinedTextField(value = amountText, onValueChange = { amountText = it }, label = { Text("还款金额") })
                 AccountSelector(accounts = sourceAccounts, selected = selectedSource, onSelected = { selectedSource = it })
                 AccountSelector(accounts = creditCards, selected = selectedCard, onSelected = { selectedCard = it })
+                DateInput(value = dateText, onValueChange = { dateText = it })
                 OutlinedTextField(value = note, onValueChange = { note = it }, label = { Text("备注") })
             }
         },
         confirmButton = {
             TextButton(
-                enabled = amount != null,
-                onClick = { onConfirm(requireNotNull(amount), selectedSource, selectedCard, note) },
+                enabled = amount != null && date != null,
+                onClick = { onConfirm(requireNotNull(amount), selectedSource, selectedCard, requireNotNull(date), note) },
             ) { Text("保存还款") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
@@ -1159,17 +1168,19 @@ private fun InvestmentBuyDialog(
     accounts: List<Account>,
     investments: List<InvestmentAsset>,
     onDismiss: () -> Unit,
-    onConfirm: (Money, Account, InvestmentAsset, String) -> Unit,
+    onConfirm: (Money, Account, InvestmentAsset, LocalDate, String) -> Unit,
 ) {
     if (accounts.isEmpty() || investments.isEmpty()) {
         SimpleMessageDialog(title = "投资买入", message = "需要至少一个资产账户和一个投资资产", onDismiss = onDismiss)
         return
     }
     var amountText by remember { mutableStateOf("") }
+    var dateText by remember { mutableStateOf(LocalDate.now().toString()) }
     var note by remember { mutableStateOf("") }
     var selectedAccount by remember(accounts) { mutableStateOf(accounts.first()) }
     var selectedInvestment by remember(investments) { mutableStateOf(investments.first()) }
     val amount = amountText.toMoneyOrNull()
+    val date = dateText.toLocalDateOrNull()
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -1183,13 +1194,14 @@ private fun InvestmentBuyDialog(
                     selected = selectedInvestment,
                     onSelected = { selectedInvestment = it },
                 )
+                DateInput(value = dateText, onValueChange = { dateText = it })
                 OutlinedTextField(value = note, onValueChange = { note = it }, label = { Text("备注") })
             }
         },
         confirmButton = {
             TextButton(
-                enabled = amount != null,
-                onClick = { onConfirm(requireNotNull(amount), selectedAccount, selectedInvestment, note) },
+                enabled = amount != null && date != null,
+                onClick = { onConfirm(requireNotNull(amount), selectedAccount, selectedInvestment, requireNotNull(date), note) },
             ) { Text("保存买入") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
@@ -1200,15 +1212,17 @@ private fun InvestmentBuyDialog(
 private fun ValuationDialog(
     investments: List<InvestmentAsset>,
     onDismiss: () -> Unit,
-    onConfirm: (InvestmentAsset, Money) -> Unit,
+    onConfirm: (InvestmentAsset, Money, LocalDate) -> Unit,
 ) {
     if (investments.isEmpty()) {
         SimpleMessageDialog(title = "更新投资市值", message = "暂无投资资产", onDismiss = onDismiss)
         return
     }
     var amountText by remember { mutableStateOf("") }
+    var dateText by remember { mutableStateOf(LocalDate.now().toString()) }
     var selectedInvestment by remember(investments) { mutableStateOf(investments.first()) }
     val amount = amountText.toMoneyOrNull()
+    val date = dateText.toLocalDateOrNull()
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -1221,12 +1235,13 @@ private fun ValuationDialog(
                     onSelected = { selectedInvestment = it },
                 )
                 OutlinedTextField(value = amountText, onValueChange = { amountText = it }, label = { Text("当前市值") })
+                DateInput(value = dateText, onValueChange = { dateText = it })
             }
         },
         confirmButton = {
             TextButton(
-                enabled = amount != null,
-                onClick = { onConfirm(selectedInvestment, requireNotNull(amount)) },
+                enabled = amount != null && date != null,
+                onClick = { onConfirm(selectedInvestment, requireNotNull(amount), requireNotNull(date)) },
             ) { Text("更新") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
@@ -1277,6 +1292,17 @@ private fun CategoryDialog(
             ) { Text("保存分类") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
+    )
+}
+
+@Composable
+private fun DateInput(value: String, onValueChange: (String) -> Unit) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text("日期") },
+        placeholder = { Text("yyyy-MM-dd") },
+        singleLine = true,
     )
 }
 
@@ -1634,3 +1660,6 @@ private fun String.toOptionalDayOrNull(): Int? {
     val day = toIntOrNull() ?: return null
     return day.takeIf { it in 1..31 }
 }
+
+private fun String.toLocalDateOrNull(): LocalDate? =
+    runCatching { LocalDate.parse(trim()) }.getOrNull()

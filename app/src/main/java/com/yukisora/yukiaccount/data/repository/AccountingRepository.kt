@@ -188,80 +188,116 @@ class AccountingRepository(
         }
     }
 
-    suspend fun addExpense(amount: Money, accountId: String, categoryId: String?, note: String) {
+    suspend fun addExpense(
+        amount: Money,
+        accountId: String,
+        categoryId: String?,
+        date: LocalDate = LocalDate.now(),
+        note: String,
+    ) {
         addTransaction(
             TransactionFactory.expense(
                 id = UUID.randomUUID().toString(),
                 amount = amount,
                 accountId = accountId,
                 categoryId = categoryId,
-                date = LocalDate.now(),
+                date = date,
                 note = note,
             )
         )
     }
 
-    suspend fun addIncome(amount: Money, accountId: String, categoryId: String?, note: String) {
+    suspend fun addIncome(
+        amount: Money,
+        accountId: String,
+        categoryId: String?,
+        date: LocalDate = LocalDate.now(),
+        note: String,
+    ) {
         addTransaction(
             TransactionFactory.income(
                 id = UUID.randomUUID().toString(),
                 amount = amount,
                 accountId = accountId,
                 categoryId = categoryId,
-                date = LocalDate.now(),
+                date = date,
                 note = note,
             )
         )
     }
 
-    suspend fun addRefund(amount: Money, accountId: String, note: String, categoryId: String? = "food") {
+    suspend fun addRefund(
+        amount: Money,
+        accountId: String,
+        categoryId: String? = "food",
+        date: LocalDate = LocalDate.now(),
+        note: String,
+    ) {
         addTransaction(
             TransactionFactory.refund(
                 id = UUID.randomUUID().toString(),
                 amount = amount,
                 accountId = accountId,
                 categoryId = categoryId,
-                date = LocalDate.now(),
+                date = date,
                 note = note,
             )
         )
     }
 
-    suspend fun addTransfer(amount: Money, sourceAccountId: String, targetAccountId: String, note: String) {
+    suspend fun addTransfer(
+        amount: Money,
+        sourceAccountId: String,
+        targetAccountId: String,
+        date: LocalDate = LocalDate.now(),
+        note: String,
+    ) {
         addTransaction(
             TransactionFactory.transfer(
                 id = UUID.randomUUID().toString(),
                 amount = amount,
                 sourceAccountId = sourceAccountId,
                 targetAccountId = targetAccountId,
-                date = LocalDate.now(),
+                date = date,
                 note = note,
             )
         )
     }
 
-    suspend fun addInvestmentBuy(amount: Money, accountId: String, investmentAssetId: String, note: String) {
+    suspend fun addInvestmentBuy(
+        amount: Money,
+        accountId: String,
+        investmentAssetId: String,
+        date: LocalDate = LocalDate.now(),
+        note: String,
+    ) {
         addTransaction(
-            Transaction(
+            TransactionFactory.investmentBuy(
                 id = UUID.randomUUID().toString(),
-                type = TransactionType.INVESTMENT_BUY,
                 amount = amount,
                 accountId = accountId,
+                categoryId = "investment-input",
                 investmentAssetId = investmentAssetId,
-                date = LocalDate.now(),
+                date = date,
                 note = note,
             )
         )
     }
 
-    suspend fun addCreditCardRepayment(amount: Money, sourceAccountId: String, creditCardAccountId: String, note: String) {
+    suspend fun addCreditCardRepayment(
+        amount: Money,
+        sourceAccountId: String,
+        creditCardAccountId: String,
+        date: LocalDate = LocalDate.now(),
+        note: String,
+    ) {
         addTransaction(
             TransactionFactory.creditCardRepayment(
                 id = UUID.randomUUID().toString(),
                 amount = amount,
                 sourceAccountId = sourceAccountId,
                 creditCardAccountId = creditCardAccountId,
-                date = LocalDate.now(),
+                date = date,
                 note = note,
             )
         )

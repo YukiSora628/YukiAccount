@@ -16,6 +16,7 @@ import com.yukisora.yukiaccount.domain.model.Money
 import com.yukisora.yukiaccount.domain.model.RecurringFrequency
 import com.yukisora.yukiaccount.domain.model.RecurringRule
 import com.yukisora.yukiaccount.domain.model.Transaction
+import java.time.LocalDate
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -111,39 +112,45 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun addExpense(amount: Money, account: Account, category: Category?, note: String) {
+    fun addExpense(amount: Money, account: Account, category: Category?, date: LocalDate, note: String) {
         viewModelScope.launch {
-            repository.addExpense(amount, account.id, category?.id, note)
+            repository.addExpense(amount, account.id, category?.id, date, note)
         }
     }
 
-    fun addIncome(amount: Money, account: Account, category: Category?, note: String) {
+    fun addIncome(amount: Money, account: Account, category: Category?, date: LocalDate, note: String) {
         viewModelScope.launch {
-            repository.addIncome(amount, account.id, category?.id, note)
+            repository.addIncome(amount, account.id, category?.id, date, note)
         }
     }
 
-    fun addRefund(amount: Money, account: Account, category: Category?, note: String) {
+    fun addRefund(amount: Money, account: Account, category: Category?, date: LocalDate, note: String) {
         viewModelScope.launch {
-            repository.addRefund(amount, account.id, note, category?.id)
+            repository.addRefund(amount, account.id, category?.id, date, note)
         }
     }
 
-    fun addTransfer(amount: Money, sourceAccount: Account, targetAccount: Account, note: String) {
+    fun addTransfer(amount: Money, sourceAccount: Account, targetAccount: Account, date: LocalDate, note: String) {
         viewModelScope.launch {
-            repository.addTransfer(amount, sourceAccount.id, targetAccount.id, note)
+            repository.addTransfer(amount, sourceAccount.id, targetAccount.id, date, note)
         }
     }
 
-    fun addInvestmentBuy(amount: Money, account: Account, investment: InvestmentAsset, note: String) {
+    fun addInvestmentBuy(amount: Money, account: Account, investment: InvestmentAsset, date: LocalDate, note: String) {
         viewModelScope.launch {
-            repository.addInvestmentBuy(amount, account.id, investment.id, note)
+            repository.addInvestmentBuy(amount, account.id, investment.id, date, note)
         }
     }
 
-    fun addCreditCardRepayment(amount: Money, sourceAccount: Account, creditCardAccount: Account, note: String) {
+    fun addCreditCardRepayment(
+        amount: Money,
+        sourceAccount: Account,
+        creditCardAccount: Account,
+        date: LocalDate,
+        note: String,
+    ) {
         viewModelScope.launch {
-            repository.addCreditCardRepayment(amount, sourceAccount.id, creditCardAccount.id, note)
+            repository.addCreditCardRepayment(amount, sourceAccount.id, creditCardAccount.id, date, note)
         }
     }
 
@@ -171,9 +178,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun updateInvestmentValue(investment: InvestmentAsset, value: Money) {
+    fun updateInvestmentValue(investment: InvestmentAsset, value: Money, date: LocalDate) {
         viewModelScope.launch {
-            repository.updateInvestmentValue(investment.id, value)
+            repository.updateInvestmentValue(investment.id, value, date)
         }
     }
 

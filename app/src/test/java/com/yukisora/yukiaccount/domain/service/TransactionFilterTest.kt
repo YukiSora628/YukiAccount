@@ -49,16 +49,52 @@ class TransactionFilterTest {
         assertEquals(listOf(target), result)
     }
 
+    @Test
+    fun filtersTransactionsByAccountAsSourceOrTarget() {
+        val sourceTransaction = transaction(
+            id = "source",
+            type = TransactionType.EXPENSE,
+            accountId = "bank",
+            categoryId = "food",
+            date = LocalDate.of(2026, 7, 8),
+        )
+        val targetTransaction = transaction(
+            id = "target",
+            type = TransactionType.TRANSFER,
+            accountId = "cash",
+            targetAccountId = "bank",
+            categoryId = null,
+            date = LocalDate.of(2026, 7, 9),
+        )
+        val unrelated = transaction(
+            id = "unrelated",
+            type = TransactionType.INCOME,
+            accountId = "alipay",
+            categoryId = "salary",
+            date = LocalDate.of(2026, 7, 10),
+        )
+
+        val result = TransactionFilter.filter(
+            transactions = listOf(sourceTransaction, targetTransaction, unrelated),
+            accountId = "bank",
+        )
+
+        assertEquals(listOf(sourceTransaction, targetTransaction), result)
+    }
+
     private fun transaction(
         id: String,
         type: TransactionType,
+        accountId: String = "bank",
+        targetAccountId: String? = null,
         categoryId: String?,
         date: LocalDate,
     ) = Transaction(
         id = id,
         type = type,
         amount = Money.cents(1_000),
-        accountId = "bank",
+        accountId = accountId,
+        targetAccountId = targetAccountId,
         categoryId = categoryId,
         date = date,
     )

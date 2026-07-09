@@ -164,6 +164,7 @@ fun YukiAccountApp(viewModel: AppViewModel = viewModel()) {
             )
             AppTab.ACCOUNTS -> AccountListScreen(
                 accounts = state.accounts,
+                transactions = state.transactions,
                 padding = padding,
                 onCreateAccount = { dialog = EntryDialog.ACCOUNT },
                 onArchiveAccount = viewModel::archiveAccount,
@@ -572,46 +573,109 @@ private fun TransactionListScreen(transactions: List<Transaction>, padding: Padd
 @Composable
 private fun AccountListScreen(
     accounts: List<Account>,
+    transactions: List<Transaction>,
     padding: PaddingValues,
     onCreateAccount: () -> Unit,
     onArchiveAccount: (Account) -> Unit,
 ) {
-    Column(
+    var selectedAccount by remember(accounts) { mutableStateOf<Account?>(null) }
+    val accountTransactions = selectedAccount?.let { account ->
+        TransactionFilter.filter(transactions, accountId = account.id)
+    }.orEmpty()
+
+    LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .padding(padding)
-            .padding(16.dp),
+            .padding(padding),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Text("账户", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
-        Spacer(Modifier.height(12.dp))
-        Button(onClick = onCreateAccount, modifier = Modifier.fillMaxWidth()) {
-            Text("新增账户")
+        item {
+            Text("账户", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
         }
-        Spacer(Modifier.height(16.dp))
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            accounts.forEach { account ->
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Text(account.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                        Text(
-                            if (account.type == AccountType.CREDIT_CARD) {
-                                "未还负债 ${account.balance.formatCurrency()}"
-                            } else {
-                                "余额 ${account.balance.formatCurrency()}"
-                            },
-                            style = MaterialTheme.typography.bodyMedium,
+        item {
+            Button(onClick = onCreateAccount, modifier = Modifier.fillMaxWidth()) {
+                Text("新增账户")
+            }
+        }
+        accounts.forEach { account ->
+            item {
+                AccountCard(
+                    account = account,
+                    selected = selectedAccount?.id == account.id,
+                    onShowTransactions = {
+                        selectedAccount = if (selectedAccount?.id == account.id) null else account
+                    },
+                    onArchiveAccount = { onArchiveAccount(account) },
+                )
+            }
+        }
+        selectedAccount?.let { account ->
+            item {
+                Text(
+                    "${account.name} 流水明细",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+            if (accountTransactions.isEmpty()) {
+                item { InfoCard(title = "暂无账户流水", body = "这个账户还没有相关流水。") }
+            } else {
+                accountTransactions.forEach { transaction ->
+                    item {
+                        AccountTransactionCard(
+                            transaction = transaction,
+                            selectedAccountId = account.id,
                         )
-                        Button(onClick = { onArchiveAccount(account) }, modifier = Modifier.fillMaxWidth()) {
-                            Text("归档账户")
-                        }
                     }
                 }
             }
         }
     }
+}
+
+@Composable
+private fun AccountCard(
+    account: Account,
+    selected: Boolean,
+    onShowTransactions: () -> Unit,
+    onArchiveAccount: () -> Unit,
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(account.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text(
+                if (account.type == AccountType.CREDIT_CARD) {
+                    "未还负债 ${account.balance.formatCurrency()}"
+                } else {
+                    "余额 ${account.balance.formatCurrency()}"
+                },
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Button(onClick = onShowTransactions, modifier = Modifier.fillMaxWidth()) {
+                Text(if (selected) "收起账户流水" else "查看账户流水")
+            }
+            Button(onClick = onArchiveAccount, modifier = Modifier.fillMaxWidth()) {
+                Text("归档账户")
+            }
+        }
+    }
+}
+
+@Composable
+private fun AccountTransactionCard(transaction: Transaction, selectedAccountId: String) {
+    val direction = when {
+        transaction.accountId == selectedAccountId && transaction.targetAccountId == selectedAccountId -> "本账户"
+        transaction.targetAccountId == selectedAccountId -> "转入"
+        else -> "转出"
+    }
+    InfoCard(
+        title = "$direction ${transaction.type.label()} ${transaction.amount.formatCurrency()}",
+        body = "${transaction.date} ${transaction.note.ifBlank { "无备注" }}",
+    )
 }
 
 @Composable

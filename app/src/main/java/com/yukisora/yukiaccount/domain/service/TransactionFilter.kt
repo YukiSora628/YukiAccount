@@ -10,10 +10,12 @@ object TransactionFilter {
         month: YearMonth? = null,
         type: TransactionType? = null,
         categoryId: String? = null,
+        accountId: String? = null,
     ): List<Transaction> =
         transactions.filter { transaction ->
             (month == null || YearMonth.from(transaction.date) == month) &&
                 (type == null || transaction.type == type) &&
-                (categoryId == null || transaction.categoryId == categoryId)
+                (categoryId == null || transaction.categoryId == categoryId) &&
+                (accountId == null || transaction.accountId == accountId || transaction.targetAccountId == accountId)
         }
 }

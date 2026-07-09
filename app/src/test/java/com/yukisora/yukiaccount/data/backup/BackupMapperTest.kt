@@ -70,6 +70,25 @@ class BackupMapperTest {
     }
 
     @Test
+    fun transactionWithMissingAccountIsRejectedBeforeImport() {
+        val document = BackupMapper.toDocument(
+            accounts = emptyList(),
+            categories = listOf(category()),
+            transactions = listOf(transaction()),
+            recurringRules = emptyList(),
+            investmentAssets = emptyList(),
+            valuationSnapshots = emptyList(),
+            skippedOccurrences = emptyList(),
+        )
+        val invalidReferenceJson = BackupService().export(document)
+
+        val result = BackupService().parseForImport(invalidReferenceJson)
+
+        assertTrue(result is BackupImportResult.Invalid)
+        assertEquals("备份文件包含不存在的流水账户 ID", result.reason)
+    }
+
+    @Test
     fun backupDocumentConvertsBackToEntities() {
         val document = BackupMapper.toDocument(
             accounts = listOf(account()),

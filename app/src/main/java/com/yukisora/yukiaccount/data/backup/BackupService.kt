@@ -31,6 +31,10 @@ class BackupService(
             return BackupImportResult.Invalid(reason)
         }
 
+        document.referenceIntegrityReason()?.let { reason ->
+            return BackupImportResult.Invalid(reason)
+        }
+
         return BackupImportResult.Valid(document)
     }
 
@@ -48,6 +52,16 @@ class BackupService(
 
     private fun List<String>.hasDuplicate(): Boolean =
         size != toSet().size
+
+    private fun BackupDocument.referenceIntegrityReason(): String? {
+        val accountIds = accounts.map { it.id }.toSet()
+
+        if (transactions.any { it.accountId !in accountIds }) {
+            return "备份文件包含不存在的流水账户 ID"
+        }
+
+        return null
+    }
 }
 
 sealed interface BackupImportResult {

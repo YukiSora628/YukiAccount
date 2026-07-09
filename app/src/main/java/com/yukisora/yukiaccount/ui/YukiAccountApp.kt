@@ -255,12 +255,12 @@ fun YukiAccountApp(viewModel: AppViewModel = viewModel()) {
             accounts = state.accounts.filter { it.type != AccountType.CREDIT_CARD },
             investments = state.investments,
             onDismiss = { dialog = null },
-            onConfirmSubscription = { name, amount, account, frequency ->
-                viewModel.addSubscriptionRule(name, amount, account, frequency)
+            onConfirmSubscription = { name, amount, account, frequency, startDate, endDate ->
+                viewModel.addSubscriptionRule(name, amount, account, frequency, startDate, endDate)
                 dialog = null
             },
-            onConfirmInvestmentBuy = { name, amount, account, investment, frequency ->
-                viewModel.addInvestmentBuyRule(name, amount, account, investment, frequency)
+            onConfirmInvestmentBuy = { name, amount, account, investment, frequency, startDate, endDate ->
+                viewModel.addInvestmentBuyRule(name, amount, account, investment, frequency, startDate, endDate)
                 dialog = null
             },
         )
@@ -809,6 +809,10 @@ private fun RecurringRuleRow(
                 "${rule.transactionType.label()} / ${rule.frequency.label()} / 下期 ${rule.nextOccurrenceDate}",
                 style = MaterialTheme.typography.bodyMedium,
             )
+            Text(
+                "起止 ${rule.startDate} - ${rule.endDate?.toString() ?: "长期"}",
+                style = MaterialTheme.typography.bodyMedium,
+            )
             Button(onClick = { onSkipNextOccurrence(rule) }, modifier = Modifier.fillMaxWidth()) {
                 Text("跳过下一期")
             }
@@ -1053,8 +1057,8 @@ private fun RecurringRuleDialog(
     accounts: List<Account>,
     investments: List<InvestmentAsset>,
     onDismiss: () -> Unit,
-    onConfirmSubscription: (String, Money, Account, RecurringFrequency) -> Unit,
-    onConfirmInvestmentBuy: (String, Money, Account, InvestmentAsset, RecurringFrequency) -> Unit,
+    onConfirmSubscription: (String, Money, Account, RecurringFrequency, LocalDate, LocalDate?) -> Unit,
+    onConfirmInvestmentBuy: (String, Money, Account, InvestmentAsset, RecurringFrequency, LocalDate, LocalDate?) -> Unit,
 ) {
     if (accounts.isEmpty()) {
         SimpleMessageDialog(title = "新增周期规则", message = "需要至少一个资产账户", onDismiss = onDismiss)
@@ -1064,11 +1068,21 @@ private fun RecurringRuleDialog(
     var isInvestmentRule by remember { mutableStateOf(false) }
     var name by remember { mutableStateOf("") }
     var amountText by remember { mutableStateOf("") }
+    var startDateText by remember { mutableStateOf(LocalDate.now().toString()) }
+    var endDateText by remember { mutableStateOf("") }
     var selectedAccount by remember(accounts) { mutableStateOf(accounts.first()) }
     var selectedInvestment by remember(investments) { mutableStateOf(investments.firstOrNull()) }
     var frequency by remember { mutableStateOf(RecurringFrequency.MONTHLY) }
     val amount = amountText.toMoneyOrNull()
-    val canSave = name.isNotBlank() && amount != null && (!isInvestmentRule || selectedInvestment != null)
+    val startDate = startDateText.toLocalDateOrNull()
+    val endDate = if (endDateText.isBlank()) null else endDateText.toLocalDateOrNull()
+    val endDateIsValid = endDateText.isBlank() || endDate != null
+    val canSave = name.isNotBlank() &&
+        amount != null &&
+        startDate != null &&
+        endDateIsValid &&
+        (endDate == null || !endDate.isBefore(startDate)) &&
+        (!isInvestmentRule || selectedInvestment != null)
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -1097,6 +1111,8 @@ private fun RecurringRuleDialog(
                     )
                 }
                 FrequencySelector(selected = frequency, onSelected = { frequency = it })
+                DateInput(value = startDateText, onValueChange = { startDateText = it }, label = "开始日期")
+                DateInput(value = endDateText, onValueChange = { endDateText = it }, label = "结束日期（可选）")
             }
         },
         confirmButton = {
@@ -1111,9 +1127,11 @@ private fun RecurringRuleDialog(
                             selectedAccount,
                             requireNotNull(selectedInvestment),
                             frequency,
+                            requireNotNull(startDate),
+                            endDate,
                         )
                     } else {
-                        onConfirmSubscription(name, value, selectedAccount, frequency)
+                        onConfirmSubscription(name, value, selectedAccount, frequency, requireNotNull(startDate), endDate)
                     }
                 },
             ) { Text("保存规则") }
@@ -1296,11 +1314,11 @@ private fun CategoryDialog(
 }
 
 @Composable
-private fun DateInput(value: String, onValueChange: (String) -> Unit) {
+private fun DateInput(value: String, onValueChange: (String) -> Unit, label: String = "日期") {
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
-        label = { Text("日期") },
+        label = { Text(label) },
         placeholder = { Text("yyyy-MM-dd") },
         singleLine = true,
     )

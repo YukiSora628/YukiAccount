@@ -16,6 +16,7 @@ object RecurringRuleFactory {
         categoryId: String,
         frequency: RecurringFrequency,
         startDate: LocalDate,
+        endDate: LocalDate? = null,
     ): RecurringRule =
         RecurringRule(
             id = id,
@@ -26,6 +27,7 @@ object RecurringRuleFactory {
             categoryId = categoryId,
             frequency = frequency,
             startDate = startDate,
+            endDate = endDate,
             nextOccurrenceDate = startDate,
         )
 
@@ -38,6 +40,7 @@ object RecurringRuleFactory {
         categoryId: String,
         frequency: RecurringFrequency,
         startDate: LocalDate,
+        endDate: LocalDate? = null,
     ): RecurringRule =
         RecurringRule(
             id = id,
@@ -49,6 +52,7 @@ object RecurringRuleFactory {
             investmentAssetId = investmentAssetId,
             frequency = frequency,
             startDate = startDate,
+            endDate = endDate,
             nextOccurrenceDate = startDate,
         )
 

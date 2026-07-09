@@ -309,6 +309,7 @@ class AccountingRepository(
         accountId: String,
         frequency: RecurringFrequency,
         startDate: LocalDate = LocalDate.now(),
+        endDate: LocalDate? = null,
     ) {
         val now = clock()
         database.recurringRuleDao().upsert(
@@ -320,6 +321,7 @@ class AccountingRepository(
                 categoryId = "subscription",
                 frequency = frequency,
                 startDate = startDate,
+                endDate = endDate,
             ).toEntity(now)
         )
     }
@@ -331,6 +333,7 @@ class AccountingRepository(
         investmentAssetId: String,
         frequency: RecurringFrequency,
         startDate: LocalDate = LocalDate.now(),
+        endDate: LocalDate? = null,
     ) {
         val now = clock()
         database.recurringRuleDao().upsert(
@@ -343,6 +346,7 @@ class AccountingRepository(
                 categoryId = "investment-input",
                 frequency = frequency,
                 startDate = startDate,
+                endDate = endDate,
             ).toEntity(now)
         )
     }

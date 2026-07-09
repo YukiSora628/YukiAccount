@@ -154,9 +154,16 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun addSubscriptionRule(name: String, amount: Money, account: Account, frequency: RecurringFrequency) {
+    fun addSubscriptionRule(
+        name: String,
+        amount: Money,
+        account: Account,
+        frequency: RecurringFrequency,
+        startDate: LocalDate,
+        endDate: LocalDate?,
+    ) {
         viewModelScope.launch {
-            repository.addSubscriptionRule(name, amount, account.id, frequency)
+            repository.addSubscriptionRule(name, amount, account.id, frequency, startDate, endDate)
         }
     }
 
@@ -166,9 +173,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         account: Account,
         investment: InvestmentAsset,
         frequency: RecurringFrequency,
+        startDate: LocalDate,
+        endDate: LocalDate?,
     ) {
         viewModelScope.launch {
-            repository.addInvestmentBuyRule(name, amount, account.id, investment.id, frequency)
+            repository.addInvestmentBuyRule(name, amount, account.id, investment.id, frequency, startDate, endDate)
         }
     }
 

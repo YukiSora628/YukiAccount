@@ -27,18 +27,27 @@ class BackupService(
             return BackupImportResult.Invalid("不支持的备份版本：${document.schemaVersion}")
         }
 
-        val duplicateIds = document.transactions
-            .groupingBy { it.id }
-            .eachCount()
-            .filterValues { it > 1 }
-            .keys
-
-        if (duplicateIds.isNotEmpty()) {
-            return BackupImportResult.Invalid("备份文件包含重复流水 ID")
+        document.duplicateIdReason()?.let { reason ->
+            return BackupImportResult.Invalid(reason)
         }
 
         return BackupImportResult.Valid(document)
     }
+
+    private fun BackupDocument.duplicateIdReason(): String? =
+        listOf(
+            "账户" to accounts.map { it.id },
+            "分类" to categories.map { it.id },
+            "流水" to transactions.map { it.id },
+            "周期规则" to recurringRules.map { it.id },
+            "投资资产" to investmentAssets.map { it.id },
+            "市值快照" to valuationSnapshots.map { it.id },
+            "跳过周期记录" to skippedOccurrences.map { it.id },
+        ).firstOrNull { (_, ids) -> ids.hasDuplicate() }
+            ?.let { (label, _) -> "备份文件包含重复${label} ID" }
+
+    private fun List<String>.hasDuplicate(): Boolean =
+        size != toSet().size
 }
 
 sealed interface BackupImportResult {

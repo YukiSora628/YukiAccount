@@ -51,6 +51,25 @@ class BackupMapperTest {
     }
 
     @Test
+    fun duplicateEntityIdsAreRejectedBeforeImport() {
+        val document = BackupMapper.toDocument(
+            accounts = listOf(account(), account().copy(name = "另一张银行卡")),
+            categories = emptyList(),
+            transactions = emptyList(),
+            recurringRules = emptyList(),
+            investmentAssets = emptyList(),
+            valuationSnapshots = emptyList(),
+            skippedOccurrences = emptyList(),
+        )
+        val duplicateAccountJson = BackupService().export(document)
+
+        val result = BackupService().parseForImport(duplicateAccountJson)
+
+        assertTrue(result is BackupImportResult.Invalid)
+        assertEquals("备份文件包含重复账户 ID", result.reason)
+    }
+
+    @Test
     fun backupDocumentConvertsBackToEntities() {
         val document = BackupMapper.toDocument(
             accounts = listOf(account()),

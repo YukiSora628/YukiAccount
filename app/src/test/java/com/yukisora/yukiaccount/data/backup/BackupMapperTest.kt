@@ -89,6 +89,38 @@ class BackupMapperTest {
     }
 
     @Test
+    fun transactionWithMissingOptionalReferencesIsRejectedBeforeImport() {
+        assertInvalidImport(
+            document = backupDocument(
+                accounts = listOf(account()),
+                transactions = listOf(transaction().copy(targetAccountId = "missing-account")),
+            ),
+            reason = "备份文件包含不存在的流水目标账户 ID",
+        )
+        assertInvalidImport(
+            document = backupDocument(
+                categories = emptyList(),
+                transactions = listOf(transaction()),
+            ),
+            reason = "备份文件包含不存在的流水分类 ID",
+        )
+        assertInvalidImport(
+            document = backupDocument(
+                investmentAssets = emptyList(),
+                transactions = listOf(transaction().copy(investmentAssetId = "missing-investment")),
+            ),
+            reason = "备份文件包含不存在的流水投资资产 ID",
+        )
+        assertInvalidImport(
+            document = backupDocument(
+                recurringRules = emptyList(),
+                transactions = listOf(transaction().copy(recurringRuleId = "missing-rule")),
+            ),
+            reason = "备份文件包含不存在的流水周期规则 ID",
+        )
+    }
+
+    @Test
     fun backupDocumentConvertsBackToEntities() {
         val document = BackupMapper.toDocument(
             accounts = listOf(account()),
@@ -109,6 +141,32 @@ class BackupMapperTest {
         assertEquals(LocalDate.of(2026, 7, 8), entities.valuationSnapshots.single().date)
         assertEquals(LocalDate.of(2026, 7, 8), entities.skippedOccurrences.single().occurrenceDate)
     }
+
+    private fun assertInvalidImport(document: BackupDocument, reason: String) {
+        val result = BackupService().parseForImport(BackupService().export(document))
+
+        assertTrue(result is BackupImportResult.Invalid)
+        assertEquals(reason, result.reason)
+    }
+
+    private fun backupDocument(
+        accounts: List<AccountEntity> = listOf(account()),
+        categories: List<CategoryEntity> = listOf(category()),
+        transactions: List<TransactionEntity> = listOf(transaction()),
+        recurringRules: List<RecurringRuleEntity> = listOf(recurringRule()),
+        investmentAssets: List<InvestmentAssetEntity> = listOf(investment()),
+        valuationSnapshots: List<ValuationSnapshotEntity> = emptyList(),
+        skippedOccurrences: List<SkippedOccurrenceEntity> = emptyList(),
+    ): BackupDocument =
+        BackupMapper.toDocument(
+            accounts = accounts,
+            categories = categories,
+            transactions = transactions,
+            recurringRules = recurringRules,
+            investmentAssets = investmentAssets,
+            valuationSnapshots = valuationSnapshots,
+            skippedOccurrences = skippedOccurrences,
+        )
 
     private fun account() = AccountEntity(
         id = "bank",

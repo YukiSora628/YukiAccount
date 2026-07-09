@@ -55,9 +55,24 @@ class BackupService(
 
     private fun BackupDocument.referenceIntegrityReason(): String? {
         val accountIds = accounts.map { it.id }.toSet()
+        val categoryIds = categories.map { it.id }.toSet()
+        val investmentAssetIds = investmentAssets.map { it.id }.toSet()
+        val recurringRuleIds = recurringRules.map { it.id }.toSet()
 
         if (transactions.any { it.accountId !in accountIds }) {
             return "备份文件包含不存在的流水账户 ID"
+        }
+        if (transactions.any { it.targetAccountId != null && it.targetAccountId !in accountIds }) {
+            return "备份文件包含不存在的流水目标账户 ID"
+        }
+        if (transactions.any { it.categoryId != null && it.categoryId !in categoryIds }) {
+            return "备份文件包含不存在的流水分类 ID"
+        }
+        if (transactions.any { it.investmentAssetId != null && it.investmentAssetId !in investmentAssetIds }) {
+            return "备份文件包含不存在的流水投资资产 ID"
+        }
+        if (transactions.any { it.recurringRuleId != null && it.recurringRuleId !in recurringRuleIds }) {
+            return "备份文件包含不存在的流水周期规则 ID"
         }
 
         return null

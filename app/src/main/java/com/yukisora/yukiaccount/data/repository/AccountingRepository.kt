@@ -367,6 +367,19 @@ class AccountingRepository(
         }
     }
 
+    suspend fun setRecurringRuleEnabled(ruleId: String, enabled: Boolean) {
+        database.withTransaction {
+            val now = clock()
+            val ruleEntity = requireNotNull(database.recurringRuleDao().getRule(ruleId)) {
+                "Recurring rule not found: $ruleId"
+            }
+            val updatedRule = RecurringRuleFactory.setEnabled(ruleEntity.toDomain(), enabled)
+            database.recurringRuleDao().update(
+                updatedRule.toEntity(now).copy(createdAt = ruleEntity.createdAt)
+            )
+        }
+    }
+
     suspend fun updateInvestmentValue(investmentAssetId: String, value: Money, date: LocalDate = LocalDate.now()) {
         database.withTransaction {
             val now = clock()

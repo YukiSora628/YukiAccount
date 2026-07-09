@@ -188,6 +188,7 @@ fun YukiAccountApp(viewModel: AppViewModel = viewModel()) {
                 onCreateCategory = { dialog = EntryDialog.CATEGORY },
                 onCreateRecurringRule = { dialog = EntryDialog.RECURRING_RULE },
                 onSkipNextOccurrence = viewModel::skipNextRecurringOccurrence,
+                onSetRecurringRuleEnabled = viewModel::setRecurringRuleEnabled,
             )
         }
     }
@@ -734,6 +735,7 @@ private fun SettingsScreen(
     onCreateCategory: () -> Unit,
     onCreateRecurringRule: () -> Unit,
     onSkipNextOccurrence: (RecurringRule) -> Unit,
+    onSetRecurringRuleEnabled: (RecurringRule, Boolean) -> Unit,
 ) {
     LazyColumn(
         modifier = Modifier
@@ -788,6 +790,7 @@ private fun SettingsScreen(
             RecurringRulesSection(
                 recurringRules = recurringRules,
                 onSkipNextOccurrence = onSkipNextOccurrence,
+                onSetRecurringRuleEnabled = onSetRecurringRuleEnabled,
             )
         }
     }
@@ -841,6 +844,7 @@ private fun CategoryRow(category: Category) {
 private fun RecurringRulesSection(
     recurringRules: List<RecurringRule>,
     onSkipNextOccurrence: (RecurringRule) -> Unit,
+    onSetRecurringRuleEnabled: (RecurringRule, Boolean) -> Unit,
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
@@ -852,7 +856,11 @@ private fun RecurringRulesSection(
                 Text("暂无周期规则。", style = MaterialTheme.typography.bodyMedium)
             } else {
                 recurringRules.forEach { rule ->
-                    RecurringRuleRow(rule = rule, onSkipNextOccurrence = onSkipNextOccurrence)
+                    RecurringRuleRow(
+                        rule = rule,
+                        onSkipNextOccurrence = onSkipNextOccurrence,
+                        onSetEnabled = onSetRecurringRuleEnabled,
+                    )
                 }
             }
         }
@@ -863,6 +871,7 @@ private fun RecurringRulesSection(
 private fun RecurringRuleRow(
     rule: RecurringRule,
     onSkipNextOccurrence: (RecurringRule) -> Unit,
+    onSetEnabled: (RecurringRule, Boolean) -> Unit,
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -881,8 +890,22 @@ private fun RecurringRuleRow(
                 "起止 ${rule.startDate} - ${rule.endDate?.toString() ?: "长期"}",
                 style = MaterialTheme.typography.bodyMedium,
             )
-            Button(onClick = { onSkipNextOccurrence(rule) }, modifier = Modifier.fillMaxWidth()) {
+            Text(
+                if (rule.enabled) "状态 启用" else "状态 停用",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Button(
+                onClick = { onSkipNextOccurrence(rule) },
+                enabled = rule.enabled,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
                 Text("跳过下一期")
+            }
+            Button(
+                onClick = { onSetEnabled(rule, !rule.enabled) },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(if (rule.enabled) "停用规则" else "启用规则")
             }
         }
     }

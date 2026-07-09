@@ -90,4 +90,28 @@ class RecurringRuleFactoryTest {
         assertEquals(LocalDate.of(2026, 12, 8), rule.endDate)
         assertEquals(LocalDate.of(2026, 7, 8), rule.nextOccurrenceDate)
     }
+
+    @Test
+    fun setEnabledChangesStatusWithoutChangingRuleDetails() {
+        val rule = RecurringRuleFactory.subscriptionExpense(
+            id = "rule-subscription",
+            name = "视频会员",
+            amount = Money.cents(1_500),
+            accountId = "bank",
+            categoryId = "subscription",
+            frequency = RecurringFrequency.MONTHLY,
+            startDate = LocalDate.of(2026, 7, 8),
+            endDate = LocalDate.of(2026, 12, 8),
+        )
+
+        val disabled = RecurringRuleFactory.setEnabled(rule, enabled = false)
+        val enabled = RecurringRuleFactory.setEnabled(disabled, enabled = true)
+
+        assertEquals(false, disabled.enabled)
+        assertEquals(true, enabled.enabled)
+        assertEquals(rule.id, disabled.id)
+        assertEquals(rule.name, disabled.name)
+        assertEquals(rule.nextOccurrenceDate, disabled.nextOccurrenceDate)
+        assertEquals(rule.endDate, disabled.endDate)
+    }
 }

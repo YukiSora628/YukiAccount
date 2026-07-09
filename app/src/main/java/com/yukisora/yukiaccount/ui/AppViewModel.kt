@@ -187,6 +187,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun setRecurringRuleEnabled(rule: RecurringRule, enabled: Boolean) {
+        viewModelScope.launch {
+            repository.setRecurringRuleEnabled(rule.id, enabled)
+        }
+    }
+
     fun updateInvestmentValue(investment: InvestmentAsset, value: Money, date: LocalDate) {
         viewModelScope.launch {
             repository.updateInvestmentValue(investment.id, value, date)

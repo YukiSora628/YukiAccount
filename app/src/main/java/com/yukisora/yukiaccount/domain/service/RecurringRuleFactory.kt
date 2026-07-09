@@ -68,6 +68,9 @@ object RecurringRuleFactory {
         )
     }
 
+    fun setEnabled(rule: RecurringRule, enabled: Boolean): RecurringRule =
+        rule.copy(enabled = enabled)
+
     private fun LocalDate.next(frequency: RecurringFrequency): LocalDate =
         when (frequency) {
             RecurringFrequency.DAILY -> plusDays(1)

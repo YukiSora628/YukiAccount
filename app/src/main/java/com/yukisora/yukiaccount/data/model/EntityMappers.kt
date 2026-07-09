@@ -44,6 +44,16 @@ fun CategoryEntity.toDomain(): Category =
         isArchived = isArchived,
     )
 
+fun Category.toEntity(): CategoryEntity =
+    CategoryEntity(
+        id = id,
+        name = name,
+        type = type,
+        isFixedExpense = isFixedExpense,
+        sortOrder = sortOrder,
+        isArchived = isArchived,
+    )
+
 fun InvestmentAssetEntity.toDomain(): InvestmentAsset =
     InvestmentAsset(
         id = id,

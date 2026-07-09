@@ -25,6 +25,7 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.AlertDialog
@@ -34,6 +35,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -76,6 +78,7 @@ private enum class EntryDialog {
     RECURRING_RULE,
     ACCOUNT,
     INVESTMENT_ASSET,
+    CATEGORY,
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -173,6 +176,7 @@ fun YukiAccountApp(viewModel: AppViewModel = viewModel()) {
             )
             AppTab.SETTINGS -> SettingsScreen(
                 padding = padding,
+                categories = state.categories,
                 recurringRules = state.recurringRules,
                 onExport = {
                     exportLauncher.launch("yuki-account-backup-${LocalDate.now()}.json")
@@ -180,6 +184,7 @@ fun YukiAccountApp(viewModel: AppViewModel = viewModel()) {
                 onImport = {
                     importLauncher.launch(arrayOf("application/json", "text/plain", "*/*"))
                 },
+                onCreateCategory = { dialog = EntryDialog.CATEGORY },
                 onCreateRecurringRule = { dialog = EntryDialog.RECURRING_RULE },
                 onSkipNextOccurrence = viewModel::skipNextRecurringOccurrence,
             )
@@ -282,6 +287,13 @@ fun YukiAccountApp(viewModel: AppViewModel = viewModel()) {
             onDismiss = { dialog = null },
             onConfirm = { investment, value ->
                 viewModel.updateInvestmentValue(investment, value)
+                dialog = null
+            },
+        )
+        EntryDialog.CATEGORY -> CategoryDialog(
+            onDismiss = { dialog = null },
+            onConfirm = { name, type, isFixedExpense ->
+                viewModel.addCategory(name, type, isFixedExpense)
                 dialog = null
             },
         )
@@ -647,9 +659,11 @@ private fun InvestmentListScreen(
 @Composable
 private fun SettingsScreen(
     padding: PaddingValues,
+    categories: List<Category>,
     recurringRules: List<RecurringRule>,
     onExport: () -> Unit,
     onImport: () -> Unit,
+    onCreateCategory: () -> Unit,
     onCreateRecurringRule: () -> Unit,
     onSkipNextOccurrence: (RecurringRule) -> Unit,
 ) {
@@ -663,7 +677,12 @@ private fun SettingsScreen(
         item {
             Text("设置", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
         }
-        item { InfoCard("分类管理", "管理消费、收入、固定支出和投资投入分类。") }
+        item {
+            CategoryManagementCard(
+                categories = categories,
+                onCreateCategory = onCreateCategory,
+            )
+        }
         item {
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(
@@ -703,6 +722,50 @@ private fun SettingsScreen(
                 onSkipNextOccurrence = onSkipNextOccurrence,
             )
         }
+    }
+}
+
+@Composable
+private fun CategoryManagementCard(
+    categories: List<Category>,
+    onCreateCategory: () -> Unit,
+) {
+    val categoryTypes = listOf("expense", "income", "investment")
+
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text("分类管理", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Button(onClick = onCreateCategory, modifier = Modifier.fillMaxWidth()) {
+                Text("新增分类")
+            }
+            categoryTypes.forEach { type ->
+                val typedCategories = categories.filter { it.type == type }
+                if (typedCategories.isNotEmpty()) {
+                    Text(type.categoryTypeLabel(), style = MaterialTheme.typography.labelLarge)
+                    typedCategories.forEach { category ->
+                        CategoryRow(category = category)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CategoryRow(category: Category) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(category.name, style = MaterialTheme.typography.bodyMedium)
+        Text(
+            text = if (category.isFixedExpense) "固定支出" else category.type.categoryTypeLabel(),
+            style = MaterialTheme.typography.labelMedium,
+        )
     }
 }
 
@@ -1171,6 +1234,53 @@ private fun ValuationDialog(
 }
 
 @Composable
+private fun CategoryDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (String, String, Boolean) -> Unit,
+) {
+    var name by remember { mutableStateOf("") }
+    var type by remember { mutableStateOf("expense") }
+    var isFixedExpense by remember { mutableStateOf(false) }
+    val canSave = name.isNotBlank()
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("新增分类") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("分类名称") })
+                CategoryTypeSelector(selected = type, onSelected = { selectedType ->
+                    type = selectedType
+                    if (selectedType != "expense") {
+                        isFixedExpense = false
+                    }
+                })
+                if (type == "expense") {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text("固定支出")
+                        Switch(
+                            checked = isFixedExpense,
+                            onCheckedChange = { isFixedExpense = it },
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = canSave,
+                onClick = { onConfirm(name.trim(), type, isFixedExpense) },
+            ) { Text("保存分类") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
+    )
+}
+
+@Composable
 private fun SimpleMessageDialog(title: String, message: String, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -1309,6 +1419,37 @@ private fun CategoryFilterSelector(
                     text = { Text(category.name) },
                     onClick = {
                         onSelected(category)
+                        expanded = false
+                    },
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CategoryTypeSelector(
+    selected: String,
+    onSelected: (String) -> Unit,
+) {
+    val categoryTypes = listOf("expense", "income", "investment")
+    var expanded by remember { mutableStateOf(false) }
+    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
+        OutlinedTextField(
+            value = selected.categoryTypeLabel(),
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("分类类型") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
+            modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable, enabled = true),
+        )
+        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            categoryTypes.forEach { type ->
+                DropdownMenuItem(
+                    text = { Text(type.categoryTypeLabel()) },
+                    onClick = {
+                        onSelected(type)
                         expanded = false
                     },
                 )
@@ -1471,6 +1612,14 @@ private fun RecurringFrequency.label(): String =
         RecurringFrequency.DAILY -> "每天"
         RecurringFrequency.WEEKLY -> "每周"
         RecurringFrequency.MONTHLY -> "每月"
+    }
+
+private fun String.categoryTypeLabel(): String =
+    when (this) {
+        "expense" -> "支出"
+        "income" -> "收入"
+        "investment" -> "投资"
+        else -> this
     }
 
 private fun String.toOptionalMoneyOrNull(): Money? =

@@ -22,6 +22,7 @@ import com.yukisora.yukiaccount.domain.model.RecurringRule
 import com.yukisora.yukiaccount.domain.model.Transaction
 import com.yukisora.yukiaccount.domain.model.TransactionType
 import com.yukisora.yukiaccount.domain.service.AccountFactory
+import com.yukisora.yukiaccount.domain.service.CategoryFactory
 import com.yukisora.yukiaccount.domain.service.InvestmentAssetFactory
 import com.yukisora.yukiaccount.domain.service.LedgerCalculator
 import com.yukisora.yukiaccount.domain.service.RecurringGenerator
@@ -93,6 +94,19 @@ class AccountingRepository(
 
     fun observeRecurringRules(): Flow<List<RecurringRule>> =
         database.recurringRuleDao().observeRules().map { entities -> entities.map { it.toDomain() } }
+
+    suspend fun addCategory(name: String, type: String, isFixedExpense: Boolean) {
+        val nextSortOrder = (database.categoryDao().allCategories().maxOfOrNull { it.sortOrder } ?: 0) + 10
+        database.categoryDao().upsert(
+            CategoryFactory.category(
+                id = UUID.randomUUID().toString(),
+                name = name.trim(),
+                type = type,
+                isFixedExpense = type == "expense" && isFixedExpense,
+                sortOrder = nextSortOrder,
+            ).toEntity()
+        )
+    }
 
     suspend fun addInvestmentAsset(
         name: String,

@@ -105,6 +105,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun addCategory(name: String, type: String, isFixedExpense: Boolean) {
+        viewModelScope.launch {
+            repository.addCategory(name, type, isFixedExpense)
+        }
+    }
+
     fun addExpense(amount: Money, account: Account, category: Category?, note: String) {
         viewModelScope.launch {
             repository.addExpense(amount, account.id, category?.id, note)

@@ -232,8 +232,13 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     suspend fun exportBackupJson(): String =
         repository.exportBackupJson()
 
-    suspend fun importBackupJson(rawJson: String): BackupImportResult =
-        repository.importBackupJson(rawJson)
+    suspend fun importBackupJson(rawJson: String): BackupImportResult {
+        val result = repository.importBackupJson(rawJson)
+        if (result is BackupImportResult.Valid) {
+            generatedRecurringTransactionIds.value = emptyList()
+        }
+        return result
+    }
 
     private suspend fun generatePendingRecurringTransactions() {
         try {

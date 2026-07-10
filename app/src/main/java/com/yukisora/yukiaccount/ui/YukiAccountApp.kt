@@ -12,6 +12,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -19,6 +25,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -39,6 +46,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -60,12 +68,12 @@ import java.time.LocalDate
 import java.time.YearMonth
 import kotlinx.coroutines.launch
 
-private enum class AppTab(val title: String) {
-    DASHBOARD("首页"),
-    TRANSACTIONS("流水"),
-    ACCOUNTS("账户"),
-    INVESTMENTS("投资"),
-    SETTINGS("设置"),
+private enum class AppTab(val title: String, val icon: ImageVector) {
+    DASHBOARD("首页", Icons.Filled.Home),
+    TRANSACTIONS("流水", Icons.AutoMirrored.Filled.List),
+    ACCOUNTS("账户", Icons.Filled.AccountCircle),
+    INVESTMENTS("投资", Icons.Filled.Star),
+    SETTINGS("设置", Icons.Filled.Settings),
 }
 
 private enum class EntryDialog {
@@ -144,7 +152,12 @@ fun YukiAccountApp(viewModel: AppViewModel = viewModel()) {
                     NavigationBarItem(
                         selected = selectedTab == tab,
                         onClick = { selectedTab = tab },
-                        icon = { Text(tab.title.first().toString()) },
+                        icon = {
+                            Icon(
+                                imageVector = tab.icon,
+                                contentDescription = tab.title,
+                            )
+                        },
                         label = { Text(tab.title) },
                     )
                 }

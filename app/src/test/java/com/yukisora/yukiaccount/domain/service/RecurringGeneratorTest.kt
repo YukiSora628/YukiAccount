@@ -17,6 +17,7 @@ class RecurringGeneratorTest {
         val rule = rule(
             frequency = RecurringFrequency.MONTHLY,
             nextOccurrenceDate = LocalDate.of(2026, 5, 10),
+            startDate = LocalDate.of(2026, 5, 10),
         )
 
         val result = RecurringGenerator.generate(
@@ -31,6 +32,32 @@ class RecurringGeneratorTest {
             result.transactions.map { it.occurrenceDate },
         )
         assertEquals(LocalDate.of(2026, 8, 10), result.updatedRules.single().nextOccurrenceDate)
+    }
+
+    @Test
+    fun monthlyRuleKeepsStartDayAfterShortMonth() {
+        val rule = rule(
+            frequency = RecurringFrequency.MONTHLY,
+            nextOccurrenceDate = LocalDate.of(2026, 1, 31),
+            startDate = LocalDate.of(2026, 1, 31),
+        )
+
+        val result = RecurringGenerator.generate(
+            rules = listOf(rule),
+            existingTransactions = emptyList(),
+            skippedOccurrences = emptyList(),
+            today = LocalDate.of(2026, 3, 31),
+        )
+
+        assertEquals(
+            listOf(
+                LocalDate.of(2026, 1, 31),
+                LocalDate.of(2026, 2, 28),
+                LocalDate.of(2026, 3, 31),
+            ),
+            result.transactions.map { it.occurrenceDate },
+        )
+        assertEquals(LocalDate.of(2026, 4, 30), result.updatedRules.single().nextOccurrenceDate)
     }
 
     @Test
@@ -113,6 +140,7 @@ class RecurringGeneratorTest {
         transactionType: TransactionType = TransactionType.EXPENSE,
         frequency: RecurringFrequency = RecurringFrequency.MONTHLY,
         nextOccurrenceDate: LocalDate = LocalDate.of(2026, 7, 1),
+        startDate: LocalDate = LocalDate.of(2026, 1, 1),
         investmentAssetId: String? = null,
         enabled: Boolean = true,
     ) = RecurringRule(
@@ -125,7 +153,7 @@ class RecurringGeneratorTest {
         categoryId = "fixed",
         investmentAssetId = investmentAssetId,
         frequency = frequency,
-        startDate = LocalDate.of(2026, 1, 1),
+        startDate = startDate,
         endDate = null,
         nextOccurrenceDate = nextOccurrenceDate,
         enabled = enabled,

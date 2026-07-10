@@ -1,6 +1,5 @@
 package com.yukisora.yukiaccount.domain.service
 
-import com.yukisora.yukiaccount.domain.model.RecurringFrequency
 import com.yukisora.yukiaccount.domain.model.RecurringRule
 import com.yukisora.yukiaccount.domain.model.SkippedOccurrence
 import com.yukisora.yukiaccount.domain.model.Transaction
@@ -27,7 +26,7 @@ object RecurringGenerator {
                     ) {
                         generated += rule.toTransaction(occurrence)
                     }
-                    occurrence = occurrence.next(rule.frequency)
+                    occurrence = occurrence.nextRecurringDate(rule.frequency, rule.startDate)
                     nextOccurrence = occurrence
                 }
 
@@ -79,12 +78,6 @@ object RecurringGenerator {
             occurrenceDate = occurrenceDate,
         )
 
-    private fun LocalDate.next(frequency: RecurringFrequency): LocalDate =
-        when (frequency) {
-            RecurringFrequency.DAILY -> plusDays(1)
-            RecurringFrequency.WEEKLY -> plusWeeks(1)
-            RecurringFrequency.MONTHLY -> plusMonths(1)
-        }
 }
 
 data class RecurringGenerationResult(

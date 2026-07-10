@@ -64,19 +64,15 @@ object RecurringRuleFactory {
                 occurrenceDate = occurrenceDate,
                 reason = reason,
             ),
-            updatedRule = rule.copy(nextOccurrenceDate = occurrenceDate.next(rule.frequency)),
+            updatedRule = rule.copy(
+                nextOccurrenceDate = occurrenceDate.nextRecurringDate(rule.frequency, rule.startDate)
+            ),
         )
     }
 
     fun setEnabled(rule: RecurringRule, enabled: Boolean): RecurringRule =
         rule.copy(enabled = enabled)
 
-    private fun LocalDate.next(frequency: RecurringFrequency): LocalDate =
-        when (frequency) {
-            RecurringFrequency.DAILY -> plusDays(1)
-            RecurringFrequency.WEEKLY -> plusWeeks(1)
-            RecurringFrequency.MONTHLY -> plusMonths(1)
-        }
 }
 
 data class RecurringSkipResult(

@@ -74,6 +74,25 @@ class RecurringRuleFactoryTest {
     }
 
     @Test
+    fun skippingMonthlyOccurrencesKeepsOriginalDayAfterShortMonth() {
+        val rule = RecurringRuleFactory.subscriptionExpense(
+            id = "rule-month-end",
+            name = "月末会员",
+            amount = Money.cents(1_500),
+            accountId = "bank",
+            categoryId = "subscription",
+            frequency = RecurringFrequency.MONTHLY,
+            startDate = LocalDate.of(2026, 1, 31),
+        )
+
+        val afterJanuary = RecurringRuleFactory.skipNextOccurrence(rule, reason = "skip").updatedRule
+        val afterFebruary = RecurringRuleFactory.skipNextOccurrence(afterJanuary, reason = "skip").updatedRule
+
+        assertEquals(LocalDate.of(2026, 2, 28), afterJanuary.nextOccurrenceDate)
+        assertEquals(LocalDate.of(2026, 3, 31), afterFebruary.nextOccurrenceDate)
+    }
+
+    @Test
     fun subscriptionRuleKeepsOptionalEndDate() {
         val rule = RecurringRuleFactory.subscriptionExpense(
             id = "rule-subscription",

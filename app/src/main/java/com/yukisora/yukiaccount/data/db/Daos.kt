@@ -38,6 +38,9 @@ interface AccountDao {
 
     @Update
     suspend fun update(account: AccountEntity)
+
+    @Query("DELETE FROM accounts")
+    suspend fun clearAll()
 }
 
 @Dao
@@ -65,6 +68,9 @@ interface TransactionDao {
 
     @Query("DELETE FROM transactions WHERE id IN (:ids)")
     suspend fun deleteByIds(ids: List<String>): Int
+
+    @Query("DELETE FROM transactions")
+    suspend fun clearAll()
 }
 
 @Dao
@@ -98,6 +104,12 @@ interface RecurringRuleDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertSkippedAll(skippedOccurrences: List<SkippedOccurrenceEntity>)
+
+    @Query("DELETE FROM recurring_rules")
+    suspend fun clearRules()
+
+    @Query("DELETE FROM skipped_occurrences")
+    suspend fun clearSkippedOccurrences()
 }
 
 @Dao
@@ -131,6 +143,12 @@ interface InvestmentDao {
 
     @Query("SELECT * FROM valuation_snapshots ORDER BY date ASC, createdAt ASC")
     suspend fun allValuations(): List<ValuationSnapshotEntity>
+
+    @Query("DELETE FROM investment_assets")
+    suspend fun clearAssets()
+
+    @Query("DELETE FROM valuation_snapshots")
+    suspend fun clearValuations()
 }
 
 @Dao
@@ -149,4 +167,7 @@ interface CategoryDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(categories: List<CategoryEntity>)
+
+    @Query("DELETE FROM categories")
+    suspend fun clearAll()
 }

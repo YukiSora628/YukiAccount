@@ -519,6 +519,14 @@ class AccountingRepository(
         }
 
         database.withTransaction {
+            database.transactionDao().clearAll()
+            database.recurringRuleDao().clearSkippedOccurrences()
+            database.investmentDao().clearValuations()
+            database.recurringRuleDao().clearRules()
+            database.investmentDao().clearAssets()
+            database.categoryDao().clearAll()
+            database.accountDao().clearAll()
+
             database.accountDao().upsertAll(entities.accounts)
             database.categoryDao().upsertAll(entities.categories)
             database.recurringRuleDao().upsertAll(entities.recurringRules)

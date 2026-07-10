@@ -22,14 +22,31 @@ sdk.dir=C\:\\Users\\Lhy\\AppData\\Local\\Android\\Sdk
 
 ## 验证命令
 
-完整 Android 构建在 Gradle Wrapper 可用后运行：
+项目已包含 Gradle Wrapper。PowerShell 下可运行：
 
 ```powershell
 .\gradlew.bat :app:testDebugUnitTest
 .\gradlew.bat :app:assembleDebug
+.\gradlew.bat :app:assembleDebugAndroidTest
 ```
 
-当前环境还没有 `gradle` 或 `gradlew.bat`。如果 Android Studio 已经成功导入项目，可以先通过 Android Studio 的 Gradle Sync 和 Run 按钮验证。
+Debug APK 生成在 `app/build/outputs/apk/debug/app-debug.apk`。连接 Android 8.0 或更高版本的设备后可安装：
+
+```powershell
+adb install -r app\build\outputs\apk\debug\app-debug.apk
+```
+
+连接设备或启动模拟器后，运行关键 Compose 流程测试：
+
+```powershell
+.\gradlew.bat :app:connectedDebugAndroidTest
+```
+
+## 数据与隐私
+
+- 账本数据保存在设备本地 Room 数据库中。
+- App 不申请网络权限，也不启用 Android 自动云备份。
+- 数据迁移使用设置页中的手动 JSON 导出和导入功能。
 
 ## 已实现的核心规则
 

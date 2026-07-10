@@ -173,4 +173,29 @@ class RecurringRuleFactoryTest {
         assertFalse(RecurringRuleFactory.disableForArchivedInvestment(rule, "gold").enabled)
         assertTrue(RecurringRuleFactory.disableForArchivedInvestment(rule, "fund").enabled)
     }
+
+    @Test
+    fun undoGenerationRewindsRuleToEarliestRemovedOccurrence() {
+        val rule = RecurringRuleFactory.subscriptionExpense(
+            id = "rule-subscription",
+            name = "视频会员",
+            amount = Money.cents(1_500),
+            accountId = "bank",
+            categoryId = "subscription",
+            frequency = RecurringFrequency.MONTHLY,
+            startDate = LocalDate.of(2026, 5, 10),
+        ).copy(nextOccurrenceDate = LocalDate.of(2026, 9, 10))
+
+        val rewound = RecurringRuleFactory.rewindAfterUndo(
+            rule = rule,
+            earliestRemovedOccurrence = LocalDate.of(2026, 6, 10),
+        )
+        val unchanged = RecurringRuleFactory.rewindAfterUndo(
+            rule = rule,
+            earliestRemovedOccurrence = LocalDate.of(2026, 10, 10),
+        )
+
+        assertEquals(LocalDate.of(2026, 6, 10), rewound.nextOccurrenceDate)
+        assertEquals(rule, unchanged)
+    }
 }

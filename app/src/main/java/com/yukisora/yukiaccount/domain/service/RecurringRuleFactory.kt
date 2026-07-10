@@ -87,6 +87,16 @@ object RecurringRuleFactory {
             rule
         }
 
+    fun rewindAfterUndo(
+        rule: RecurringRule,
+        earliestRemovedOccurrence: LocalDate,
+    ): RecurringRule =
+        if (earliestRemovedOccurrence.isBefore(rule.nextOccurrenceDate)) {
+            rule.copy(nextOccurrenceDate = earliestRemovedOccurrence)
+        } else {
+            rule
+        }
+
 }
 
 data class RecurringSkipResult(

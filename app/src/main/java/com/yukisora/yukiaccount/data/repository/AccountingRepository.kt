@@ -484,6 +484,26 @@ class AccountingRepository(
                 )
             }
 
+            val earliestOccurrenceByRule = mutableMapOf<String, LocalDate>()
+            transactionEntities.forEach { transaction ->
+                val ruleId = transaction.recurringRuleId ?: return@forEach
+                val occurrenceDate = transaction.occurrenceDate ?: return@forEach
+                val currentEarliest = earliestOccurrenceByRule[ruleId]
+                if (currentEarliest == null || occurrenceDate.isBefore(currentEarliest)) {
+                    earliestOccurrenceByRule[ruleId] = occurrenceDate
+                }
+            }
+            earliestOccurrenceByRule.forEach { (ruleId, earliestOccurrence) ->
+                val ruleEntity = database.recurringRuleDao().getRule(ruleId) ?: return@forEach
+                val rule = ruleEntity.toDomain()
+                val rewoundRule = RecurringRuleFactory.rewindAfterUndo(rule, earliestOccurrence)
+                if (rewoundRule != rule) {
+                    database.recurringRuleDao().update(
+                        rewoundRule.toEntity(now).copy(createdAt = ruleEntity.createdAt)
+                    )
+                }
+            }
+
             val idsToDelete = transactionEntities.map { it.id }
             database.transactionDao().deleteByIds(idsToDelete)
             idsToDelete.size

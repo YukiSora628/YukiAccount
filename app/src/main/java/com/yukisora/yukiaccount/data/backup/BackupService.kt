@@ -74,6 +74,27 @@ class BackupService(
         if (transactions.any { it.recurringRuleId != null && it.recurringRuleId !in recurringRuleIds }) {
             return "备份文件包含不存在的流水周期规则 ID"
         }
+        if (recurringRules.any { it.accountId !in accountIds }) {
+            return "备份文件包含不存在的周期规则账户 ID"
+        }
+        if (recurringRules.any { it.targetAccountId != null && it.targetAccountId !in accountIds }) {
+            return "备份文件包含不存在的周期规则目标账户 ID"
+        }
+        if (recurringRules.any { it.categoryId != null && it.categoryId !in categoryIds }) {
+            return "备份文件包含不存在的周期规则分类 ID"
+        }
+        if (recurringRules.any {
+                it.investmentAssetId != null && it.investmentAssetId !in investmentAssetIds
+            }
+        ) {
+            return "备份文件包含不存在的周期规则投资资产 ID"
+        }
+        if (valuationSnapshots.any { it.investmentAssetId !in investmentAssetIds }) {
+            return "备份文件包含不存在的市值快照投资资产 ID"
+        }
+        if (skippedOccurrences.any { it.recurringRuleId !in recurringRuleIds }) {
+            return "备份文件包含不存在的跳过周期规则 ID"
+        }
 
         return null
     }

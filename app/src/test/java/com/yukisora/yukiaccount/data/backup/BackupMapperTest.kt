@@ -121,6 +121,56 @@ class BackupMapperTest {
     }
 
     @Test
+    fun recurringRuleWithMissingReferencesIsRejectedBeforeImport() {
+        assertInvalidImport(
+            document = backupDocument(
+                accounts = emptyList(),
+                transactions = emptyList(),
+            ),
+            reason = "备份文件包含不存在的周期规则账户 ID",
+        )
+        assertInvalidImport(
+            document = backupDocument(
+                recurringRules = listOf(recurringRule().copy(targetAccountId = "missing-account")),
+            ),
+            reason = "备份文件包含不存在的周期规则目标账户 ID",
+        )
+        assertInvalidImport(
+            document = backupDocument(
+                categories = emptyList(),
+                transactions = emptyList(),
+            ),
+            reason = "备份文件包含不存在的周期规则分类 ID",
+        )
+        assertInvalidImport(
+            document = backupDocument(
+                recurringRules = listOf(recurringRule().copy(investmentAssetId = "missing-investment")),
+            ),
+            reason = "备份文件包含不存在的周期规则投资资产 ID",
+        )
+    }
+
+    @Test
+    fun valuationWithMissingInvestmentAssetIsRejectedBeforeImport() {
+        assertInvalidImport(
+            document = backupDocument(
+                valuationSnapshots = listOf(valuation().copy(investmentAssetId = "missing-investment")),
+            ),
+            reason = "备份文件包含不存在的市值快照投资资产 ID",
+        )
+    }
+
+    @Test
+    fun skippedOccurrenceWithMissingRecurringRuleIsRejectedBeforeImport() {
+        assertInvalidImport(
+            document = backupDocument(
+                skippedOccurrences = listOf(skippedOccurrence().copy(recurringRuleId = "missing-rule")),
+            ),
+            reason = "备份文件包含不存在的跳过周期规则 ID",
+        )
+    }
+
+    @Test
     fun backupDocumentConvertsBackToEntities() {
         val document = BackupMapper.toDocument(
             accounts = listOf(account()),
@@ -214,7 +264,7 @@ class BackupMapperTest {
         amountCents = 1500,
         accountId = "bank",
         targetAccountId = null,
-        categoryId = "fixed",
+        categoryId = "food",
         investmentAssetId = null,
         frequency = RecurringFrequency.MONTHLY,
         startDate = LocalDate.of(2026, 1, 1),

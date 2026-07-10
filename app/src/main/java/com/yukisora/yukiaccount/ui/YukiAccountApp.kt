@@ -38,6 +38,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -464,7 +465,7 @@ private fun RecurringGenerationCard(count: Int, onUndo: () -> Unit) {
         ) {
             Text("自动周期账单", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             if (count > 0) {
-                Text("本次启动已自动补记 $count 条会员订阅、自动续费或定投流水。", style = MaterialTheme.typography.bodyMedium)
+                Text("本次运行已自动补记 $count 条会员订阅、自动续费或定投流水。", style = MaterialTheme.typography.bodyMedium)
                 Button(onClick = onUndo, modifier = Modifier.fillMaxWidth()) {
                     Text("撤销本次补记")
                 }
@@ -495,6 +496,7 @@ private fun TransactionListScreen(
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
+            .testTag("transaction-list")
             .padding(padding),
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -949,11 +951,13 @@ private fun MoneyEntryDialog(
                     onValueChange = { amountText = it },
                     label = { Text("金额") },
                     singleLine = true,
+                    modifier = Modifier.testTag("money-entry-amount"),
                 )
                 AccountSelector(
                     accounts = accounts,
                     selected = selectedAccount,
                     onSelected = { selectedAccount = it },
+                    testTag = "money-entry-account",
                 )
                 if (categories.isNotEmpty() && selectedCategory != null) {
                     CategorySelector(
@@ -968,6 +972,7 @@ private fun MoneyEntryDialog(
                     onValueChange = { note = it },
                     label = { Text("备注") },
                     singleLine = true,
+                    modifier = Modifier.testTag("money-entry-note"),
                 )
             }
         },
@@ -1198,8 +1203,18 @@ private fun RecurringRuleDialog(
                         modifier = Modifier.weight(1f),
                     ) { Text("定投") }
                 }
-                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("名称") })
-                OutlinedTextField(value = amountText, onValueChange = { amountText = it }, label = { Text("金额") })
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("名称") },
+                    modifier = Modifier.testTag("recurring-name"),
+                )
+                OutlinedTextField(
+                    value = amountText,
+                    onValueChange = { amountText = it },
+                    label = { Text("金额") },
+                    modifier = Modifier.testTag("recurring-amount"),
+                )
                 AccountSelector(accounts = accounts, selected = selectedAccount, onSelected = { selectedAccount = it })
                 if (isInvestmentRule && selectedInvestment != null) {
                     InvestmentSelector(
@@ -1262,11 +1277,21 @@ private fun CreditCardRepaymentDialog(
         title = { Text("信用卡还款") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedTextField(value = amountText, onValueChange = { amountText = it }, label = { Text("还款金额") })
+                OutlinedTextField(
+                    value = amountText,
+                    onValueChange = { amountText = it },
+                    label = { Text("还款金额") },
+                    modifier = Modifier.testTag("repayment-amount"),
+                )
                 AccountSelector(accounts = sourceAccounts, selected = selectedSource, onSelected = { selectedSource = it })
                 AccountSelector(accounts = creditCards, selected = selectedCard, onSelected = { selectedCard = it })
                 DateInput(value = dateText, onValueChange = { dateText = it })
-                OutlinedTextField(value = note, onValueChange = { note = it }, label = { Text("备注") })
+                OutlinedTextField(
+                    value = note,
+                    onValueChange = { note = it },
+                    label = { Text("备注") },
+                    modifier = Modifier.testTag("repayment-note"),
+                )
             }
         },
         confirmButton = {
@@ -1303,7 +1328,12 @@ private fun InvestmentBuyDialog(
         title = { Text("投资买入") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedTextField(value = amountText, onValueChange = { amountText = it }, label = { Text("金额") })
+                OutlinedTextField(
+                    value = amountText,
+                    onValueChange = { amountText = it },
+                    label = { Text("金额") },
+                    modifier = Modifier.testTag("investment-buy-amount"),
+                )
                 AccountSelector(accounts = accounts, selected = selectedAccount, onSelected = { selectedAccount = it })
                 InvestmentSelector(
                     investments = investments,
@@ -1311,7 +1341,12 @@ private fun InvestmentBuyDialog(
                     onSelected = { selectedInvestment = it },
                 )
                 DateInput(value = dateText, onValueChange = { dateText = it })
-                OutlinedTextField(value = note, onValueChange = { note = it }, label = { Text("备注") })
+                OutlinedTextField(
+                    value = note,
+                    onValueChange = { note = it },
+                    label = { Text("备注") },
+                    modifier = Modifier.testTag("investment-buy-note"),
+                )
             }
         },
         confirmButton = {
@@ -1350,7 +1385,12 @@ private fun ValuationDialog(
                     selected = selectedInvestment,
                     onSelected = { selectedInvestment = it },
                 )
-                OutlinedTextField(value = amountText, onValueChange = { amountText = it }, label = { Text("当前市值") })
+                OutlinedTextField(
+                    value = amountText,
+                    onValueChange = { amountText = it },
+                    label = { Text("当前市值") },
+                    modifier = Modifier.testTag("valuation-value"),
+                )
                 DateInput(value = dateText, onValueChange = { dateText = it })
             }
         },
@@ -1667,6 +1707,7 @@ private fun AccountSelector(
     accounts: List<Account>,
     selected: Account,
     onSelected: (Account) -> Unit,
+    testTag: String = "account-selector",
 ) {
     var expanded by remember { mutableStateOf(false) }
     ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
@@ -1676,7 +1717,9 @@ private fun AccountSelector(
             readOnly = true,
             label = { Text("账户") },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
-            modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable, enabled = true),
+            modifier = Modifier
+                .testTag(testTag)
+                .menuAnchor(MenuAnchorType.PrimaryNotEditable, enabled = true),
         )
         ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             accounts.forEach { account ->

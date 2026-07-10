@@ -6,6 +6,7 @@ import com.yukisora.yukiaccount.domain.model.TransactionType
 import java.time.LocalDate
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class RecurringRuleFactoryTest {
@@ -132,5 +133,44 @@ class RecurringRuleFactoryTest {
         assertEquals(rule.name, disabled.name)
         assertEquals(rule.nextOccurrenceDate, disabled.nextOccurrenceDate)
         assertEquals(rule.endDate, disabled.endDate)
+    }
+
+    @Test
+    fun archivingAccountDisablesRulesThatReferenceIt() {
+        val sourceRule = RecurringRuleFactory.subscriptionExpense(
+            id = "source-rule",
+            name = "视频会员",
+            amount = Money.cents(1_500),
+            accountId = "bank",
+            categoryId = "subscription",
+            frequency = RecurringFrequency.MONTHLY,
+            startDate = LocalDate.of(2026, 7, 8),
+        )
+        val targetRule = sourceRule.copy(
+            id = "target-rule",
+            accountId = "cash",
+            targetAccountId = "bank",
+        )
+
+        assertFalse(RecurringRuleFactory.disableForArchivedAccount(sourceRule, "bank").enabled)
+        assertFalse(RecurringRuleFactory.disableForArchivedAccount(targetRule, "bank").enabled)
+        assertTrue(RecurringRuleFactory.disableForArchivedAccount(sourceRule, "other").enabled)
+    }
+
+    @Test
+    fun archivingInvestmentDisablesRulesThatReferenceIt() {
+        val rule = RecurringRuleFactory.investmentBuy(
+            id = "investment-rule",
+            name = "黄金定投",
+            amount = Money.cents(2_000),
+            accountId = "bank",
+            investmentAssetId = "gold",
+            categoryId = "investment-input",
+            frequency = RecurringFrequency.DAILY,
+            startDate = LocalDate.of(2026, 7, 8),
+        )
+
+        assertFalse(RecurringRuleFactory.disableForArchivedInvestment(rule, "gold").enabled)
+        assertTrue(RecurringRuleFactory.disableForArchivedInvestment(rule, "fund").enabled)
     }
 }

@@ -17,6 +17,7 @@ import com.yukisora.yukiaccount.domain.model.RecurringFrequency
 import com.yukisora.yukiaccount.domain.model.RecurringRule
 import com.yukisora.yukiaccount.domain.model.Transaction
 import java.time.LocalDate
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -29,6 +30,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         YukiAccountDatabase.getInstance(application)
     )
     private val generatedRecurringTransactionIds = MutableStateFlow<List<String>>(emptyList())
+    private val statusMessage = MutableStateFlow<String?>(null)
 
     val uiState: StateFlow<AccountingUiState> =
         combine(
@@ -57,6 +59,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             ) { state, recurringRules ->
                 state.copy(recurringRules = recurringRules)
             }
+        }.let { baseState ->
+            combine(baseState, statusMessage) { state, message ->
+                state.copy(statusMessage = message)
+            }
         }.stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
@@ -65,9 +71,28 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         viewModelScope.launch {
-            repository.ensureSeedData()
-            generatedRecurringTransactionIds.value = repository.generateRecurringTransactions().transactionIds
+            try {
+                repository.ensureSeedData()
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                statusMessage.value = "初始化失败：${error.message ?: "未知错误"}"
+                return@launch
+            }
+
+            try {
+                generatedRecurringTransactionIds.value =
+                    repository.generateRecurringTransactions().transactionIds
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                statusMessage.value = "周期补记失败：${error.message ?: "未知错误"}"
+            }
         }
+    }
+
+    fun clearStatusMessage() {
+        statusMessage.value = null
     }
 
     fun addAssetAccount(name: String, type: AccountType, balance: Money) {
@@ -230,4 +255,5 @@ data class AccountingUiState(
     val investments: List<InvestmentAsset> = emptyList(),
     val recurringRules: List<RecurringRule> = emptyList(),
     val recurringGenerationCount: Int = 0,
+    val statusMessage: String? = null,
 )

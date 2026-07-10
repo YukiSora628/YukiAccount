@@ -161,25 +161,47 @@ class AccountingRepository(
     }
 
     suspend fun archiveAccount(accountId: String) {
-        val now = clock()
-        val entity = requireNotNull(database.accountDao().getById(accountId)) {
-            "Account not found: $accountId"
+        database.withTransaction {
+            val now = clock()
+            val entity = requireNotNull(database.accountDao().getById(accountId)) {
+                "Account not found: $accountId"
+            }
+            val archived = AccountFactory.archive(entity.toDomain())
+            database.accountDao().update(
+                archived.toEntity(now).copy(createdAt = entity.createdAt)
+            )
+            database.recurringRuleDao().allRules().forEach { ruleEntity ->
+                val rule = ruleEntity.toDomain()
+                val updatedRule = RecurringRuleFactory.disableForArchivedAccount(rule, accountId)
+                if (updatedRule != rule) {
+                    database.recurringRuleDao().update(
+                        updatedRule.toEntity(now).copy(createdAt = ruleEntity.createdAt)
+                    )
+                }
+            }
         }
-        val archived = AccountFactory.archive(entity.toDomain())
-        database.accountDao().update(
-            archived.toEntity(now).copy(createdAt = entity.createdAt)
-        )
     }
 
     suspend fun archiveInvestmentAsset(investmentAssetId: String) {
-        val now = clock()
-        val entity = requireNotNull(database.investmentDao().getAsset(investmentAssetId)) {
-            "Investment asset not found: $investmentAssetId"
+        database.withTransaction {
+            val now = clock()
+            val entity = requireNotNull(database.investmentDao().getAsset(investmentAssetId)) {
+                "Investment asset not found: $investmentAssetId"
+            }
+            val archived = InvestmentAssetFactory.archive(entity.toDomain())
+            database.investmentDao().updateAsset(
+                archived.toEntity(now).copy(createdAt = entity.createdAt)
+            )
+            database.recurringRuleDao().allRules().forEach { ruleEntity ->
+                val rule = ruleEntity.toDomain()
+                val updatedRule = RecurringRuleFactory.disableForArchivedInvestment(rule, investmentAssetId)
+                if (updatedRule != rule) {
+                    database.recurringRuleDao().update(
+                        updatedRule.toEntity(now).copy(createdAt = ruleEntity.createdAt)
+                    )
+                }
+            }
         }
-        val archived = InvestmentAssetFactory.archive(entity.toDomain())
-        database.investmentDao().updateAsset(
-            archived.toEntity(now).copy(createdAt = entity.createdAt)
-        )
     }
 
     suspend fun addTransaction(transaction: Transaction) {

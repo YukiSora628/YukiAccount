@@ -73,6 +73,20 @@ object RecurringRuleFactory {
     fun setEnabled(rule: RecurringRule, enabled: Boolean): RecurringRule =
         rule.copy(enabled = enabled)
 
+    fun disableForArchivedAccount(rule: RecurringRule, accountId: String): RecurringRule =
+        if (rule.accountId == accountId || rule.targetAccountId == accountId) {
+            rule.copy(enabled = false)
+        } else {
+            rule
+        }
+
+    fun disableForArchivedInvestment(rule: RecurringRule, investmentAssetId: String): RecurringRule =
+        if (rule.investmentAssetId == investmentAssetId) {
+            rule.copy(enabled = false)
+        } else {
+            rule
+        }
+
 }
 
 data class RecurringSkipResult(

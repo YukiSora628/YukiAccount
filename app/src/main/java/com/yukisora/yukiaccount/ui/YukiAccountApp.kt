@@ -87,7 +87,7 @@ fun YukiAccountApp(viewModel: AppViewModel = viewModel()) {
     var selectedTab by remember { mutableStateOf(AppTab.DASHBOARD) }
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var dialog by remember { mutableStateOf<EntryDialog?>(null) }
-    var statusMessage by remember { mutableStateOf<String?>(null) }
+    var localStatusMessage by remember { mutableStateOf<String?>(null) }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val exportLauncher = rememberLauncherForActivityResult(
@@ -103,7 +103,7 @@ fun YukiAccountApp(viewModel: AppViewModel = viewModel()) {
                         writer.write(json)
                     }
                 }
-                statusMessage = result.fold(
+                localStatusMessage = result.fold(
                     onSuccess = { "备份已导出" },
                     onFailure = { "导出失败：${it.message ?: "未知错误"}" },
                 )
@@ -123,7 +123,7 @@ fun YukiAccountApp(viewModel: AppViewModel = viewModel()) {
                     }
                     viewModel.importBackupJson(rawJson)
                 }
-                statusMessage = result.fold(
+                localStatusMessage = result.fold(
                     onSuccess = { importResult ->
                         when (importResult) {
                             is BackupImportResult.Valid -> "备份已导入"
@@ -302,11 +302,18 @@ fun YukiAccountApp(viewModel: AppViewModel = viewModel()) {
         null -> Unit
     }
 
-    statusMessage?.let { message ->
+    val visibleStatusMessage = localStatusMessage ?: state.statusMessage
+    visibleStatusMessage?.let { message ->
         SimpleMessageDialog(
-            title = "导入导出",
+            title = if (localStatusMessage != null) "导入导出" else "操作提示",
             message = message,
-            onDismiss = { statusMessage = null },
+            onDismiss = {
+                if (localStatusMessage != null) {
+                    localStatusMessage = null
+                } else {
+                    viewModel.clearStatusMessage()
+                }
+            },
         )
     }
 }

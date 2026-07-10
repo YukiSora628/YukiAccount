@@ -263,6 +263,105 @@ class BackupMapperTest {
     }
 
     @Test
+    fun unsupportedBackupEnumValuesAreRejectedBeforeImport() {
+        val document = backupDocument()
+
+        assertInvalidImport(
+            document = document.copy(accounts = document.accounts.map { it.copy(type = "BROKERAGE") }),
+            reason = "备份文件包含无效账户类型",
+        )
+        assertInvalidImport(
+            document = document.copy(categories = document.categories.map { it.copy(type = "other") }),
+            reason = "备份文件包含无效分类类型",
+        )
+        assertInvalidImport(
+            document = document.copy(transactions = document.transactions.map { it.copy(type = "OTHER") }),
+            reason = "备份文件包含无效流水类型",
+        )
+        assertInvalidImport(
+            document = document.copy(recurringRules = document.recurringRules.map { it.copy(frequency = "YEARLY") }),
+            reason = "备份文件包含无效周期频率",
+        )
+        assertInvalidImport(
+            document = document.copy(investmentAssets = document.investmentAssets.map { it.copy(type = "STOCK") }),
+            reason = "备份文件包含无效投资类型",
+        )
+    }
+
+    @Test
+    fun transactionMissingRequiredTargetIsRejectedBeforeImport() {
+        val document = backupDocument()
+
+        assertInvalidImport(
+            document = document.copy(
+                transactions = document.transactions.map { it.copy(type = "TRANSFER", targetAccountId = null) },
+            ),
+            reason = "备份文件包含缺少目标账户的转账流水",
+        )
+        assertInvalidImport(
+            document = document.copy(
+                transactions = document.transactions.map {
+                    it.copy(type = "CREDIT_CARD_REPAYMENT", targetAccountId = null)
+                },
+            ),
+            reason = "备份文件包含缺少目标账户的信用卡还款流水",
+        )
+        assertInvalidImport(
+            document = document.copy(
+                transactions = document.transactions.map { it.copy(type = "INVESTMENT_BUY", investmentAssetId = null) },
+            ),
+            reason = "备份文件包含缺少投资资产的投资买入流水",
+        )
+        assertInvalidImport(
+            document = document.copy(
+                recurringRules = document.recurringRules.map {
+                    it.copy(transactionType = "INVESTMENT_BUY", investmentAssetId = null)
+                },
+            ),
+            reason = "备份文件包含缺少投资资产的定投规则",
+        )
+    }
+
+    @Test
+    fun transactionWithInvalidAccountRolesIsRejectedBeforeImport() {
+        val bank = account()
+        val cash = account().copy(id = "cash", name = "现金", type = AccountType.CASH)
+        val creditCard = account().copy(id = "card", name = "信用卡", type = AccountType.CREDIT_CARD)
+        val document = backupDocument(accounts = listOf(bank, cash, creditCard))
+
+        assertInvalidImport(
+            document = document.copy(
+                transactions = document.transactions.map {
+                    it.copy(type = "TRANSFER", targetAccountId = "card")
+                },
+            ),
+            reason = "备份文件包含使用信用卡的普通转账流水",
+        )
+        assertInvalidImport(
+            document = document.copy(
+                transactions = document.transactions.map {
+                    it.copy(type = "CREDIT_CARD_REPAYMENT", targetAccountId = "cash")
+                },
+            ),
+            reason = "备份文件包含目标不是信用卡的还款流水",
+        )
+        assertInvalidImport(
+            document = document.copy(
+                transactions = document.transactions.map { it.copy(type = "INCOME", accountId = "card") },
+            ),
+            reason = "备份文件包含记入信用卡的收入流水",
+        )
+        assertInvalidImport(
+            document = document.copy(
+                transactions = document.transactions.map {
+                    it.copy(type = "INVESTMENT_BUY", accountId = "card", investmentAssetId = "fund")
+                },
+            ),
+            reason = "备份文件包含使用信用卡的投资买入流水",
+        )
+    }
+
+    @Test
     fun backupDocumentConvertsBackToEntities() {
         val document = BackupMapper.toDocument(
             accounts = listOf(account()),

@@ -80,14 +80,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 return@launch
             }
 
-            try {
-                generatedRecurringTransactionIds.value =
-                    repository.generateRecurringTransactions().transactionIds
-            } catch (error: CancellationException) {
-                throw error
-            } catch (error: Exception) {
-                statusMessage.value = "周期补记失败：${error.message ?: "未知错误"}"
-            }
+            generatePendingRecurringTransactions()
         }
     }
 
@@ -189,6 +182,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     ) {
         viewModelScope.launch {
             repository.addSubscriptionRule(name, amount, account.id, frequency, startDate, endDate)
+            generatePendingRecurringTransactions()
         }
     }
 
@@ -203,6 +197,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     ) {
         viewModelScope.launch {
             repository.addInvestmentBuyRule(name, amount, account.id, investment.id, frequency, startDate, endDate)
+            generatePendingRecurringTransactions()
         }
     }
 
@@ -239,6 +234,18 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     suspend fun importBackupJson(rawJson: String): BackupImportResult =
         repository.importBackupJson(rawJson)
+
+    private suspend fun generatePendingRecurringTransactions() {
+        try {
+            val generatedIds = repository.generateRecurringTransactions().transactionIds
+            generatedRecurringTransactionIds.value =
+                (generatedRecurringTransactionIds.value + generatedIds).distinct()
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            statusMessage.value = "周期补记失败：${error.message ?: "未知错误"}"
+        }
+    }
 }
 
 data class AccountingUiState(

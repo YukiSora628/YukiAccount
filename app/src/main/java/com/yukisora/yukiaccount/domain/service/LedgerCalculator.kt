@@ -15,6 +15,8 @@ object LedgerCalculator {
         investments: List<InvestmentAsset>,
         transaction: Transaction,
     ): LedgerState {
+        validateTransactionTargets(accounts, investments, transaction)
+
         val updatedAccounts = when (transaction.type) {
             TransactionType.EXPENSE -> accounts.updateAccount(transaction.accountId) { account ->
                 if (account.type == AccountType.CREDIT_CARD) {
@@ -59,6 +61,8 @@ object LedgerCalculator {
         investments: List<InvestmentAsset>,
         transaction: Transaction,
     ): LedgerState {
+        validateTransactionTargets(accounts, investments, transaction)
+
         val updatedAccounts = when (transaction.type) {
             TransactionType.EXPENSE -> accounts.updateAccount(transaction.accountId) { account ->
                 if (account.type == AccountType.CREDIT_CARD) {
@@ -156,6 +160,70 @@ object LedgerCalculator {
         investments.fold(Money.ZERO) { total, investment ->
             total + investmentGainLoss(investment)
         }
+
+    private fun validateTransactionTargets(
+        accounts: List<Account>,
+        investments: List<InvestmentAsset>,
+        transaction: Transaction,
+    ) {
+        require(transaction.amount > Money.ZERO) { "Transaction amount must be positive" }
+        val sourceAccount = requireNotNull(accounts.firstOrNull { it.id == transaction.accountId }) {
+            "Transaction source account not found: ${transaction.accountId}"
+        }
+
+        when (transaction.type) {
+            TransactionType.EXPENSE,
+            TransactionType.REFUND -> Unit
+            TransactionType.INCOME -> require(sourceAccount.type != AccountType.CREDIT_CARD) {
+                "Income account must be an asset account"
+            }
+            TransactionType.TRANSFER -> {
+                require(sourceAccount.type != AccountType.CREDIT_CARD) {
+                    "Transfer source must be an asset account"
+                }
+                val targetAccountId = requireNotNull(transaction.targetAccountId) {
+                    "Transfer target account is required"
+                }
+                require(targetAccountId != sourceAccount.id) {
+                    "Transfer source and target accounts must differ"
+                }
+                val targetAccount = requireNotNull(accounts.firstOrNull { it.id == targetAccountId }) {
+                    "Transfer target account not found: $targetAccountId"
+                }
+                require(targetAccount.type != AccountType.CREDIT_CARD) {
+                    "Transfer target must be an asset account"
+                }
+            }
+            TransactionType.CREDIT_CARD_REPAYMENT -> {
+                require(sourceAccount.type != AccountType.CREDIT_CARD) {
+                    "Repayment source must be an asset account"
+                }
+                val targetAccountId = requireNotNull(transaction.targetAccountId) {
+                    "Repayment target account is required"
+                }
+                require(targetAccountId != sourceAccount.id) {
+                    "Repayment source and target accounts must differ"
+                }
+                val targetAccount = requireNotNull(accounts.firstOrNull { it.id == targetAccountId }) {
+                    "Repayment target account not found: $targetAccountId"
+                }
+                require(targetAccount.type == AccountType.CREDIT_CARD) {
+                    "Repayment target must be a credit card account"
+                }
+            }
+            TransactionType.INVESTMENT_BUY -> {
+                require(sourceAccount.type != AccountType.CREDIT_CARD) {
+                    "Investment source must be an asset account"
+                }
+                val investmentAssetId = requireNotNull(transaction.investmentAssetId) {
+                    "Investment asset is required"
+                }
+                require(investments.any { it.id == investmentAssetId }) {
+                    "Investment asset not found: $investmentAssetId"
+                }
+            }
+        }
+    }
 
     private fun List<Account>.updateAccount(id: String, transform: (Account) -> Account): List<Account> =
         map { account -> if (account.id == id) transform(account) else account }

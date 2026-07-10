@@ -10,6 +10,7 @@ import com.yukisora.yukiaccount.domain.model.TransactionType
 import org.junit.Test
 import java.time.LocalDate
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 
 class LedgerCalculatorTest {
     private val month = java.time.YearMonth.of(2026, 7)
@@ -228,6 +229,89 @@ class LedgerCalculatorTest {
 
         assertEquals(Money.cents(20_000), result.accounts.first { it.id == bank.id }.balance)
         assertEquals(Money.cents(8_000), result.accounts.first { it.id == card.id }.balance)
+    }
+
+    @Test
+    fun transactionWithMissingSourceAccountIsRejected() {
+        val expense = transaction(
+            type = TransactionType.EXPENSE,
+            amount = 1_000,
+            accountId = "missing",
+        )
+
+        assertFailsWith<IllegalArgumentException> {
+            LedgerCalculator.applyTransaction(
+                accounts = listOf(assetAccount(balance = 10_000)),
+                investments = emptyList(),
+                transaction = expense,
+            )
+        }
+    }
+
+    @Test
+    fun investmentBuyWithMissingInvestmentAssetIsRejected() {
+        val bank = assetAccount(id = "bank", balance = 10_000)
+        val buy = transaction(
+            type = TransactionType.INVESTMENT_BUY,
+            amount = 1_000,
+            accountId = bank.id,
+            investmentAssetId = "missing",
+        )
+
+        assertFailsWith<IllegalArgumentException> {
+            LedgerCalculator.applyTransaction(
+                accounts = listOf(bank),
+                investments = emptyList(),
+                transaction = buy,
+            )
+        }
+    }
+
+    @Test
+    fun creditCardRepaymentRequiresAssetSourceAndCreditCardTarget() {
+        val bank = assetAccount(id = "bank", balance = 10_000)
+        val wallet = assetAccount(id = "wallet", balance = 5_000)
+        val card = creditCard(id = "card", balance = 3_000)
+
+        assertFailsWith<IllegalArgumentException> {
+            LedgerCalculator.applyTransaction(
+                accounts = listOf(bank, wallet),
+                investments = emptyList(),
+                transaction = transaction(
+                    type = TransactionType.CREDIT_CARD_REPAYMENT,
+                    amount = 1_000,
+                    accountId = bank.id,
+                    targetAccountId = wallet.id,
+                ),
+            )
+        }
+        assertFailsWith<IllegalArgumentException> {
+            LedgerCalculator.applyTransaction(
+                accounts = listOf(card),
+                investments = emptyList(),
+                transaction = transaction(
+                    type = TransactionType.CREDIT_CARD_REPAYMENT,
+                    amount = 1_000,
+                    accountId = card.id,
+                    targetAccountId = card.id,
+                ),
+            )
+        }
+    }
+
+    @Test
+    fun transferToSameAccountIsRejected() {
+        val bank = assetAccount(id = "bank", balance = 10_000)
+        val transfer = transaction(
+            type = TransactionType.TRANSFER,
+            amount = 1_000,
+            accountId = bank.id,
+            targetAccountId = bank.id,
+        )
+
+        assertFailsWith<IllegalArgumentException> {
+            LedgerCalculator.applyTransaction(listOf(bank), emptyList(), transfer)
+        }
     }
 
     private fun assetAccount(

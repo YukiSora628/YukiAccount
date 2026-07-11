@@ -21,6 +21,7 @@ import com.yukisora.yukiaccount.domain.model.RecurringFrequency
 import com.yukisora.yukiaccount.domain.model.RecurringRule
 import com.yukisora.yukiaccount.domain.model.Transaction
 import com.yukisora.yukiaccount.domain.model.TransactionType
+import com.yukisora.yukiaccount.domain.model.ValuationSnapshot
 import com.yukisora.yukiaccount.domain.service.AccountFactory
 import com.yukisora.yukiaccount.domain.service.CategoryFactory
 import com.yukisora.yukiaccount.domain.service.InvestmentAssetFactory
@@ -91,6 +92,9 @@ class AccountingRepository(
 
     fun observeInvestments(): Flow<List<InvestmentAsset>> =
         database.investmentDao().observeActiveInvestments().map { entities -> entities.map { it.toDomain() } }
+
+    fun observeValuations(): Flow<List<ValuationSnapshot>> =
+        database.investmentDao().observeValuations().map { entities -> entities.map { it.toDomain() } }
 
     fun observeRecurringRules(): Flow<List<RecurringRule>> =
         database.recurringRuleDao().observeRules().map { entities -> entities.map { it.toDomain() } }

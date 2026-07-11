@@ -150,6 +150,9 @@ interface InvestmentDao {
     @Query("SELECT * FROM valuation_snapshots ORDER BY date ASC, createdAt ASC")
     suspend fun allValuations(): List<ValuationSnapshotEntity>
 
+    @Query("SELECT * FROM valuation_snapshots ORDER BY date DESC, createdAt DESC")
+    fun observeValuations(): Flow<List<ValuationSnapshotEntity>>
+
     @Query("DELETE FROM investment_assets")
     suspend fun clearAssets()
 

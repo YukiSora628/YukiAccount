@@ -62,6 +62,7 @@ import com.yukisora.yukiaccount.domain.model.RecurringFrequency
 import com.yukisora.yukiaccount.domain.model.RecurringRule
 import com.yukisora.yukiaccount.domain.model.Transaction
 import com.yukisora.yukiaccount.domain.model.TransactionType
+import com.yukisora.yukiaccount.domain.model.ValuationSnapshot
 import com.yukisora.yukiaccount.domain.service.LedgerCalculator
 import com.yukisora.yukiaccount.domain.service.TransactionFilter
 import java.time.LocalDate
@@ -188,8 +189,10 @@ fun YukiAccountApp(viewModel: AppViewModel = viewModel()) {
             )
             AppTab.INVESTMENTS -> InvestmentListScreen(
                 investments = state.investments,
+                valuations = state.valuations,
                 padding = padding,
                 onCreateInvestment = { dialog = EntryDialog.INVESTMENT_ASSET },
+                onUpdateValuation = { dialog = EntryDialog.VALUATION },
                 onArchiveInvestment = viewModel::archiveInvestmentAsset,
             )
             AppTab.SETTINGS -> SettingsScreen(
@@ -720,24 +723,38 @@ private fun AccountTransactionCard(transaction: Transaction, selectedAccountId: 
 @Composable
 private fun InvestmentListScreen(
     investments: List<InvestmentAsset>,
+    valuations: List<ValuationSnapshot>,
     padding: PaddingValues,
     onCreateInvestment: () -> Unit,
+    onUpdateValuation: () -> Unit,
     onArchiveInvestment: (InvestmentAsset) -> Unit,
 ) {
-    Column(
+    var expandedInvestmentIds by remember(investments) { mutableStateOf(emptySet<String>()) }
+
+    LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .padding(padding)
-            .padding(16.dp),
+            .padding(padding),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Text("投资", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
-        Spacer(Modifier.height(12.dp))
-        Button(onClick = onCreateInvestment, modifier = Modifier.fillMaxWidth()) {
-            Text("新增投资资产")
+        item {
+            Text("投资", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
         }
-        Spacer(Modifier.height(16.dp))
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            investments.forEach { investment ->
+        item {
+            Button(onClick = onCreateInvestment, modifier = Modifier.fillMaxWidth()) {
+                Text("新增投资资产")
+            }
+        }
+        item {
+            Button(onClick = onUpdateValuation, modifier = Modifier.fillMaxWidth()) {
+                Text("更新市值")
+            }
+        }
+        investments.forEach { investment ->
+            val investmentValuations = valuations.filter { it.investmentAssetId == investment.id }
+            val historyExpanded = investment.id in expandedInvestmentIds
+            item(key = investment.id) {
                 val gainLoss = LedgerCalculator.investmentGainLoss(investment)
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(
@@ -753,9 +770,40 @@ private fun InvestmentListScreen(
                             "最近市值 ${investment.lastValuationDate?.toString() ?: "未更新"}",
                             style = MaterialTheme.typography.bodyMedium,
                         )
+                        Button(
+                            onClick = {
+                                expandedInvestmentIds = if (historyExpanded) {
+                                    expandedInvestmentIds - investment.id
+                                } else {
+                                    expandedInvestmentIds + investment.id
+                                }
+                            },
+                            enabled = investmentValuations.isNotEmpty(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("valuation-history-toggle-${investment.id}"),
+                        ) {
+                            Text(
+                                when {
+                                    investmentValuations.isEmpty() -> "暂无历史市值"
+                                    historyExpanded -> "收起历史市值 (${investmentValuations.size})"
+                                    else -> "查看历史市值 (${investmentValuations.size})"
+                                }
+                            )
+                        }
                         Button(onClick = { onArchiveInvestment(investment) }, modifier = Modifier.fillMaxWidth()) {
                             Text("归档投资资产")
                         }
+                    }
+                }
+            }
+            if (historyExpanded) {
+                investmentValuations.forEach { snapshot ->
+                    item(key = snapshot.id) {
+                        InfoCard(
+                            title = "${snapshot.date} 市值 ${snapshot.value.formatCurrency()}",
+                            body = snapshot.note.ifBlank { investment.name },
+                        )
                     }
                 }
             }

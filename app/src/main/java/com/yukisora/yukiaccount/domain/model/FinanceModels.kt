@@ -85,6 +85,14 @@ data class InvestmentAsset(
     val isArchived: Boolean = false,
 )
 
+data class ValuationSnapshot(
+    val id: String,
+    val investmentAssetId: String,
+    val date: LocalDate,
+    val value: Money,
+    val note: String = "",
+)
+
 data class LedgerState(
     val accounts: List<Account>,
     val investments: List<InvestmentAsset>,

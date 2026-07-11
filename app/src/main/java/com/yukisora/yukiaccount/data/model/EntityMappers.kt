@@ -7,6 +7,7 @@ import com.yukisora.yukiaccount.domain.model.Money
 import com.yukisora.yukiaccount.domain.model.RecurringRule
 import com.yukisora.yukiaccount.domain.model.SkippedOccurrence
 import com.yukisora.yukiaccount.domain.model.Transaction
+import com.yukisora.yukiaccount.domain.model.ValuationSnapshot
 
 fun AccountEntity.toDomain(): Account =
     Account(
@@ -76,6 +77,15 @@ fun InvestmentAsset.toEntity(now: Long): InvestmentAssetEntity =
         isArchived = isArchived,
         createdAt = now,
         updatedAt = now,
+    )
+
+fun ValuationSnapshotEntity.toDomain(): ValuationSnapshot =
+    ValuationSnapshot(
+        id = id,
+        investmentAssetId = investmentAssetId,
+        date = date,
+        value = Money.cents(valueCents),
+        note = note,
     )
 
 fun TransactionEntity.toDomain(): Transaction =

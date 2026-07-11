@@ -16,6 +16,7 @@ import com.yukisora.yukiaccount.domain.model.Money
 import com.yukisora.yukiaccount.domain.model.RecurringFrequency
 import com.yukisora.yukiaccount.domain.model.RecurringRule
 import com.yukisora.yukiaccount.domain.model.Transaction
+import com.yukisora.yukiaccount.domain.model.ValuationSnapshot
 import java.time.LocalDate
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -58,6 +59,13 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 repository.observeRecurringRules(),
             ) { state, recurringRules ->
                 state.copy(recurringRules = recurringRules)
+            }
+        }.let { baseState ->
+            combine(
+                baseState,
+                repository.observeValuations(),
+            ) { state, valuations ->
+                state.copy(valuations = valuations)
             }
         }.let { baseState ->
             combine(baseState, statusMessage) { state, message ->
@@ -291,6 +299,7 @@ data class AccountingUiState(
     val categories: List<Category> = emptyList(),
     val investments: List<InvestmentAsset> = emptyList(),
     val recurringRules: List<RecurringRule> = emptyList(),
+    val valuations: List<ValuationSnapshot> = emptyList(),
     val recurringGenerationCount: Int = 0,
     val statusMessage: String? = null,
 )

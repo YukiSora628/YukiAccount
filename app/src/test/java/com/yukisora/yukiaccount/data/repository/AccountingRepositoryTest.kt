@@ -184,4 +184,27 @@ class AccountingRepositoryTest {
         assertEquals(Money.cents(200_000), beforeArchive)
         assertEquals(beforeArchive, afterArchive)
     }
+
+    @Test
+    fun valuationHistoryIsObservedNewestFirst() = runBlocking {
+        repository.ensureSeedData()
+        repository.updateInvestmentValue(
+            investmentAssetId = "fund",
+            value = Money.cents(10_000),
+            date = LocalDate.of(2026, 7, 9),
+        )
+        repository.updateInvestmentValue(
+            investmentAssetId = "fund",
+            value = Money.cents(10_500),
+            date = LocalDate.of(2026, 7, 10),
+        )
+
+        val history = repository.observeValuations().first()
+
+        assertEquals(2, history.size)
+        assertEquals(LocalDate.of(2026, 7, 10), history[0].date)
+        assertEquals(Money.cents(10_500), history[0].value)
+        assertEquals(LocalDate.of(2026, 7, 9), history[1].date)
+        assertEquals("fund", history[1].investmentAssetId)
+    }
 }

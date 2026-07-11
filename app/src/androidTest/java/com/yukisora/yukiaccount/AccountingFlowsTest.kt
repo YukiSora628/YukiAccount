@@ -122,6 +122,8 @@ class AccountingFlowsTest {
 
         composeRule.onNodeWithText("投资").performClick()
         composeRule.onNodeWithText("最近市值 ${LocalDate.now()}").assertIsDisplayed()
+        composeRule.onNodeWithTag("valuation-history-toggle-fund").performClick()
+        composeRule.onNodeWithText("${LocalDate.now()} 市值 ¥0.00").assertIsDisplayed()
     }
 
     private fun openTransactionsAndAssertNote(note: String) {

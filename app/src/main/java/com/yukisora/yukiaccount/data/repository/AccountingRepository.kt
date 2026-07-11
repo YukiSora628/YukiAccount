@@ -61,7 +61,7 @@ class AccountingRepository(
             database.accountDao().observeAllAccounts().map { entities -> entities.map { it.toDomain() } },
             database.investmentDao().observeAllInvestments().map { entities -> entities.map { it.toDomain() } },
             database.transactionDao().observeTransactions().map { entities -> entities.map { it.toDomain() } },
-            database.categoryDao().observeActiveCategories(),
+            database.categoryDao().observeAllCategories(),
         ) { accounts, investments, transactions, categories ->
             val fixedExpenseCategoryIds = categories
                 .filter { it.isFixedExpense }
@@ -106,6 +106,28 @@ class AccountingRepository(
                 sortOrder = nextSortOrder,
             ).toEntity()
         )
+    }
+
+    suspend fun archiveCategory(categoryId: String) {
+        require(categoryId !in REQUIRED_SYSTEM_CATEGORY_IDS) {
+            "Required system category cannot be archived: $categoryId"
+        }
+        database.withTransaction {
+            val category = requireNotNull(database.categoryDao().getById(categoryId)) {
+                "Category not found: $categoryId"
+            }.toDomain()
+            database.categoryDao().upsert(CategoryFactory.archive(category).toEntity())
+            val now = clock()
+            database.recurringRuleDao().allRules().forEach { ruleEntity ->
+                val rule = ruleEntity.toDomain()
+                val updatedRule = RecurringRuleFactory.disableForArchivedCategory(rule, categoryId)
+                if (updatedRule != rule) {
+                    database.recurringRuleDao().update(
+                        updatedRule.toEntity(now).copy(createdAt = ruleEntity.createdAt)
+                    )
+                }
+            }
+        }
     }
 
     suspend fun addInvestmentAsset(
@@ -675,6 +697,8 @@ private fun defaultCategories(): List<CategoryEntity> =
             isArchived = false,
         ),
     )
+
+private val REQUIRED_SYSTEM_CATEGORY_IDS = setOf("subscription", "investment-input")
 
 private fun defaultAccounts(now: Long): List<AccountEntity> =
     listOf(

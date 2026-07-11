@@ -4,9 +4,12 @@ import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.yukisora.yukiaccount.data.db.YukiAccountDatabase
+import com.yukisora.yukiaccount.data.model.toEntity
 import com.yukisora.yukiaccount.domain.model.Money
 import com.yukisora.yukiaccount.domain.model.RecurringFrequency
+import com.yukisora.yukiaccount.domain.service.RecurringRuleFactory
 import java.time.LocalDate
+import java.time.YearMonth
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -129,5 +132,56 @@ class AccountingRepositoryTest {
                 transaction.categoryId == null || transaction.categoryId in categories
             }
         )
+    }
+
+    @Test
+    fun archivingCustomCategoryDisablesDependentRulesAndPreservesHistory() = runBlocking {
+        val today = LocalDate.of(2026, 7, 10)
+        repository.ensureSeedData()
+        repository.addCategory("房租", "expense", isFixedExpense = true)
+        val category = database.categoryDao().allCategories().first { it.name == "房租" }
+        val rule = RecurringRuleFactory.subscriptionExpense(
+            id = "rent-rule",
+            name = "房租",
+            amount = Money.cents(200_000),
+            accountId = "bank",
+            categoryId = category.id,
+            frequency = RecurringFrequency.MONTHLY,
+            startDate = today,
+        )
+        database.recurringRuleDao().upsert(rule.toEntity(now = 100L))
+
+        repository.archiveCategory(category.id)
+
+        assertTrue(requireNotNull(database.categoryDao().getById(category.id)).isArchived)
+        assertEquals(false, requireNotNull(database.recurringRuleDao().getRule(rule.id)).enabled)
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun systemCategoryCannotBeArchived() = runBlocking {
+        repository.ensureSeedData()
+
+        repository.archiveCategory("subscription")
+    }
+
+    @Test
+    fun archivingFixedExpenseCategoryDoesNotRewriteDashboardHistory() = runBlocking {
+        repository.ensureSeedData()
+        repository.addCategory("房租", "expense", isFixedExpense = true)
+        val category = database.categoryDao().allCategories().first { it.name == "房租" }
+        repository.addExpense(
+            amount = Money.cents(200_000),
+            accountId = "bank",
+            categoryId = category.id,
+            date = YearMonth.now().atDay(1),
+            note = "本月房租",
+        )
+        val beforeArchive = repository.observeDashboard().first().monthlyFixedExpense
+
+        repository.archiveCategory(category.id)
+        val afterArchive = repository.observeDashboard().first().monthlyFixedExpense
+
+        assertEquals(Money.cents(200_000), beforeArchive)
+        assertEquals(beforeArchive, afterArchive)
     }
 }

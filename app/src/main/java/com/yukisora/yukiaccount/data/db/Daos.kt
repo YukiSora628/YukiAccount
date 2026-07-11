@@ -159,6 +159,9 @@ interface InvestmentDao {
 
 @Dao
 interface CategoryDao {
+    @Query("SELECT * FROM categories ORDER BY sortOrder ASC")
+    fun observeAllCategories(): Flow<List<CategoryEntity>>
+
     @Query("SELECT * FROM categories WHERE isArchived = 0 ORDER BY sortOrder ASC")
     fun observeActiveCategories(): Flow<List<CategoryEntity>>
 

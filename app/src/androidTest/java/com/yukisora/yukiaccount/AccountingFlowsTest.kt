@@ -79,6 +79,22 @@ class AccountingFlowsTest {
     }
 
     @Test
+    fun createsAndArchivesCustomCategory() {
+        val categoryName = unique("UI测试分类")
+
+        composeRule.onNodeWithText("设置").performClick()
+        composeRule.onNodeWithText("新增分类").performClick()
+        composeRule.onNodeWithTag("category-name").performTextInput(categoryName)
+        composeRule.onNodeWithText("保存分类").performClick()
+        composeRule.onNodeWithText(categoryName).assertIsDisplayed()
+
+        composeRule.onNodeWithTag("archive-category-$categoryName").performClick()
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodes(hasText(categoryName)).fetchSemanticsNodes().isEmpty()
+        }
+    }
+
+    @Test
     fun recordsInvestmentBuy() {
         val note = unique("UI测试基金买入")
 

@@ -17,4 +17,7 @@ object CategoryFactory {
             isFixedExpense = isFixedExpense,
             sortOrder = sortOrder,
         )
+
+    fun archive(category: Category): Category =
+        category.copy(isArchived = true)
 }

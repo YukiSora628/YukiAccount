@@ -130,6 +130,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun archiveCategory(category: Category) {
+        launchAction {
+            repository.archiveCategory(category.id)
+        }
+    }
+
     fun addExpense(amount: Money, account: Account, category: Category?, date: LocalDate, note: String) {
         launchAction {
             repository.addExpense(amount, account.id, category?.id, date, note)

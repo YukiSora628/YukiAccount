@@ -90,6 +90,9 @@ private enum class EntryDialog {
     CATEGORY,
 }
 
+private val requiredSystemCategoryIds = setOf("subscription", "investment-input")
+private val categoryTypes = listOf("expense", "income", "transfer", "investment")
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun YukiAccountApp(viewModel: AppViewModel = viewModel()) {
@@ -200,6 +203,7 @@ fun YukiAccountApp(viewModel: AppViewModel = viewModel()) {
                     importLauncher.launch(arrayOf("application/json", "text/plain", "*/*"))
                 },
                 onCreateCategory = { dialog = EntryDialog.CATEGORY },
+                onArchiveCategory = viewModel::archiveCategory,
                 onCreateRecurringRule = { dialog = EntryDialog.RECURRING_RULE },
                 onSkipNextOccurrence = viewModel::skipNextRecurringOccurrence,
                 onSetRecurringRuleEnabled = viewModel::setRecurringRuleEnabled,
@@ -756,6 +760,7 @@ private fun SettingsScreen(
     onExport: () -> Unit,
     onImport: () -> Unit,
     onCreateCategory: () -> Unit,
+    onArchiveCategory: (Category) -> Unit,
     onCreateRecurringRule: () -> Unit,
     onSkipNextOccurrence: (RecurringRule) -> Unit,
     onSetRecurringRuleEnabled: (RecurringRule, Boolean) -> Unit,
@@ -774,6 +779,7 @@ private fun SettingsScreen(
             CategoryManagementCard(
                 categories = categories,
                 onCreateCategory = onCreateCategory,
+                onArchiveCategory = onArchiveCategory,
             )
         }
         item {
@@ -823,9 +829,8 @@ private fun SettingsScreen(
 private fun CategoryManagementCard(
     categories: List<Category>,
     onCreateCategory: () -> Unit,
+    onArchiveCategory: (Category) -> Unit,
 ) {
-    val categoryTypes = listOf("expense", "income", "investment")
-
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -840,7 +845,10 @@ private fun CategoryManagementCard(
                 if (typedCategories.isNotEmpty()) {
                     Text(type.categoryTypeLabel(), style = MaterialTheme.typography.labelLarge)
                     typedCategories.forEach { category ->
-                        CategoryRow(category = category)
+                        CategoryRow(
+                            category = category,
+                            onArchive = { onArchiveCategory(category) },
+                        )
                     }
                 }
             }
@@ -849,17 +857,32 @@ private fun CategoryManagementCard(
 }
 
 @Composable
-private fun CategoryRow(category: Category) {
-    Row(
+private fun CategoryRow(category: Category, onArchive: () -> Unit) {
+    Column(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
+        verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Text(category.name, style = MaterialTheme.typography.bodyMedium)
-        Text(
-            text = if (category.isFixedExpense) "固定支出" else category.type.categoryTypeLabel(),
-            style = MaterialTheme.typography.labelMedium,
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(category.name, style = MaterialTheme.typography.bodyMedium)
+            Text(
+                text = if (category.isFixedExpense) "固定支出" else category.type.categoryTypeLabel(),
+                style = MaterialTheme.typography.labelMedium,
+            )
+        }
+        if (category.id !in requiredSystemCategoryIds) {
+            Button(
+                onClick = onArchive,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("archive-category-${category.name}"),
+            ) {
+                Text("归档分类")
+            }
+        }
     }
 }
 
@@ -1451,7 +1474,12 @@ private fun CategoryDialog(
         title = { Text("新增分类") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("分类名称") })
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("分类名称") },
+                    modifier = Modifier.testTag("category-name"),
+                )
                 CategoryTypeSelector(selected = type, onSelected = { selectedType ->
                     type = selectedType
                     if (selectedType != "expense") {
@@ -1647,7 +1675,6 @@ private fun CategoryTypeSelector(
     selected: String,
     onSelected: (String) -> Unit,
 ) {
-    val categoryTypes = listOf("expense", "income", "transfer", "investment")
     var expanded by remember { mutableStateOf(false) }
     ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
         OutlinedTextField(

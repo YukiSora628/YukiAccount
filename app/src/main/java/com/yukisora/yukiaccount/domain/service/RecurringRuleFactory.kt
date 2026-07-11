@@ -87,6 +87,13 @@ object RecurringRuleFactory {
             rule
         }
 
+    fun disableForArchivedCategory(rule: RecurringRule, categoryId: String): RecurringRule =
+        if (rule.categoryId == categoryId) {
+            rule.copy(enabled = false)
+        } else {
+            rule
+        }
+
     fun rewindAfterUndo(
         rule: RecurringRule,
         earliestRemovedOccurrence: LocalDate,

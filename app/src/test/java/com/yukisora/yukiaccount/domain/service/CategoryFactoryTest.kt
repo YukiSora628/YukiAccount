@@ -22,4 +22,19 @@ class CategoryFactoryTest {
         assertEquals(50, category.sortOrder)
         assertFalse(category.isArchived)
     }
+
+    @Test
+    fun archivePreservesCategoryDetails() {
+        val category = CategoryFactory.category(
+            id = "rent",
+            name = "房租",
+            type = "expense",
+            isFixedExpense = true,
+            sortOrder = 50,
+        )
+
+        val archived = CategoryFactory.archive(category)
+
+        assertEquals(category.copy(isArchived = true), archived)
+    }
 }

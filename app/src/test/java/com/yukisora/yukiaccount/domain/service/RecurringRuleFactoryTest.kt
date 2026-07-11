@@ -175,6 +175,22 @@ class RecurringRuleFactoryTest {
     }
 
     @Test
+    fun archivingCategoryDisablesRulesThatReferenceIt() {
+        val rule = RecurringRuleFactory.subscriptionExpense(
+            id = "rent-rule",
+            name = "房租",
+            amount = Money.cents(200_000),
+            accountId = "bank",
+            categoryId = "rent",
+            frequency = RecurringFrequency.MONTHLY,
+            startDate = LocalDate.of(2026, 7, 8),
+        )
+
+        assertFalse(RecurringRuleFactory.disableForArchivedCategory(rule, "rent").enabled)
+        assertTrue(RecurringRuleFactory.disableForArchivedCategory(rule, "food").enabled)
+    }
+
+    @Test
     fun undoGenerationRewindsRuleToEarliestRemovedOccurrence() {
         val rule = RecurringRuleFactory.subscriptionExpense(
             id = "rule-subscription",

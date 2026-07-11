@@ -90,6 +90,9 @@ class AccountingRepository(
     fun observeCategories(): Flow<List<Category>> =
         database.categoryDao().observeActiveCategories().map { entities -> entities.map { it.toDomain() } }
 
+    fun observeAllCategories(): Flow<List<Category>> =
+        database.categoryDao().observeAllCategories().map { entities -> entities.map { it.toDomain() } }
+
     fun observeInvestments(): Flow<List<InvestmentAsset>> =
         database.investmentDao().observeActiveInvestments().map { entities -> entities.map { it.toDomain() } }
 

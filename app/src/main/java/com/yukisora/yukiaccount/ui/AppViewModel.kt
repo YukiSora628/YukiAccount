@@ -56,6 +56,13 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }.let { baseState ->
             combine(
                 baseState,
+                repository.observeAllCategories(),
+            ) { state, allCategories ->
+                state.copy(allCategories = allCategories)
+            }
+        }.let { baseState ->
+            combine(
+                baseState,
                 repository.observeRecurringRules(),
             ) { state, recurringRules ->
                 state.copy(recurringRules = recurringRules)
@@ -297,6 +304,7 @@ data class AccountingUiState(
     val transactions: List<Transaction> = emptyList(),
     val accounts: List<Account> = emptyList(),
     val categories: List<Category> = emptyList(),
+    val allCategories: List<Category> = emptyList(),
     val investments: List<InvestmentAsset> = emptyList(),
     val recurringRules: List<RecurringRule> = emptyList(),
     val valuations: List<ValuationSnapshot> = emptyList(),

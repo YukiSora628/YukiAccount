@@ -177,7 +177,7 @@ fun YukiAccountApp(viewModel: AppViewModel = viewModel()) {
             )
             AppTab.TRANSACTIONS -> TransactionListScreen(
                 transactions = state.transactions,
-                categories = state.categories,
+                categories = state.allCategories,
                 padding = padding,
             )
             AppTab.ACCOUNTS -> AccountListScreen(
@@ -512,7 +512,7 @@ private fun TransactionListScreen(
         type = selectedType,
         categoryId = selectedCategory?.id,
     )
-    val categoryNames = categories.associate { it.id to it.name }
+    val categoryNames = categories.associate { it.id to it.historyLabel() }
 
     LazyColumn(
         modifier = Modifier
@@ -567,33 +567,6 @@ private fun TransactionListScreen(
                     InfoCard(
                         title = "${transaction.type.label()} ${transaction.amount.formatCurrency()}",
                         body = "${transaction.date}$categoryText$autoText ${transaction.note.ifBlank { "无备注" }}",
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun TransactionListScreen(transactions: List<Transaction>, padding: PaddingValues) {
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(padding),
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        item {
-            Text("流水", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
-        }
-        if (transactions.isEmpty()) {
-            item { InfoCard(title = "暂无流水", body = "从首页快捷操作录入第一笔流水。") }
-        } else {
-            transactions.forEach { transaction ->
-                item {
-                    InfoCard(
-                        title = "${transaction.type.label()} ${transaction.amount.formatCurrency()}",
-                        body = "${transaction.date} ${transaction.note.ifBlank { "无备注" }}",
                     )
                 }
             }
@@ -1060,6 +1033,7 @@ private fun MoneyEntryDialog(
                         categories = categories,
                         selected = requireNotNull(selectedCategory),
                         onSelected = { selectedCategory = it },
+                        testTag = "money-entry-category",
                     )
                 }
                 DateInput(value = dateText, onValueChange = { dateText = it })
@@ -1700,7 +1674,7 @@ private fun CategoryFilterSelector(
     var expanded by remember { mutableStateOf(false) }
     ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
         OutlinedTextField(
-            value = selected?.name ?: "全部分类",
+            value = selected?.historyLabel() ?: "全部分类",
             onValueChange = {},
             readOnly = true,
             label = { Text("分类") },
@@ -1717,7 +1691,7 @@ private fun CategoryFilterSelector(
             )
             categories.forEach { category ->
                 DropdownMenuItem(
-                    text = { Text(category.name) },
+                    text = { Text(category.historyLabel()) },
                     onClick = {
                         onSelected(category)
                         expanded = false
@@ -1794,6 +1768,7 @@ private fun CategorySelector(
     categories: List<Category>,
     selected: Category,
     onSelected: (Category) -> Unit,
+    testTag: String = "category-selector",
 ) {
     var expanded by remember { mutableStateOf(false) }
     ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
@@ -1803,7 +1778,9 @@ private fun CategorySelector(
             readOnly = true,
             label = { Text("分类") },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
-            modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable, enabled = true),
+            modifier = Modifier
+                .menuAnchor(MenuAnchorType.PrimaryNotEditable, enabled = true)
+                .testTag(testTag),
         )
         ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             categories.forEach { category ->
@@ -1925,6 +1902,9 @@ private fun String.categoryTypeLabel(): String =
         "investment" -> "投资"
         else -> this
     }
+
+private fun Category.historyLabel(): String =
+    if (isArchived) "$name（已归档）" else name
 
 private fun String.toOptionalMoneyOrNull(): Money? =
     if (isBlank()) {

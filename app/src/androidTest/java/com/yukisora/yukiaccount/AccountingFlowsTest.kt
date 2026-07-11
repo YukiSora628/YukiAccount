@@ -7,6 +7,7 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
 import java.time.LocalDate
@@ -100,6 +101,32 @@ class AccountingFlowsTest {
         composeRule.waitUntil(timeoutMillis = 5_000) {
             composeRule.onAllNodes(hasText(categoryName)).fetchSemanticsNodes().isEmpty()
         }
+    }
+
+    @Test
+    fun archivedCategoryNameRemainsVisibleInTransactionHistory() {
+        val categoryName = unique("UI测试历史分类")
+        val note = unique("UI测试归档分类流水")
+
+        composeRule.onNodeWithText("设置").performClick()
+        composeRule.onNodeWithText("新增分类").performClick()
+        composeRule.onNodeWithTag("category-name").performTextInput(categoryName)
+        composeRule.onNodeWithText("保存分类").performClick()
+
+        composeRule.onNodeWithText("首页").performClick()
+        composeRule.onNodeWithText("记支出").performClick()
+        composeRule.onNodeWithTag("money-entry-amount").performTextInput("8.88")
+        composeRule.onNodeWithTag("money-entry-category").performClick()
+        composeRule.onNodeWithText(categoryName).performClick()
+        composeRule.onNodeWithTag("money-entry-note").performTextInput(note)
+        composeRule.onNodeWithText("保存支出").performClick()
+
+        composeRule.onNodeWithText("设置").performClick()
+        composeRule.onNodeWithTag("archive-category-$categoryName").performScrollTo().performClick()
+
+        composeRule.onNodeWithText("流水").performClick()
+        composeRule.onNodeWithTag("transaction-list").performScrollToNode(hasText(note, substring = true))
+        composeRule.onNodeWithText("$categoryName（已归档）", substring = true).assertIsDisplayed()
     }
 
     @Test

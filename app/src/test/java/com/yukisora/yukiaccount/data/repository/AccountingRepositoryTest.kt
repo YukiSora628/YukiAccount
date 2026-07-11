@@ -207,4 +207,18 @@ class AccountingRepositoryTest {
         assertEquals(LocalDate.of(2026, 7, 9), history[1].date)
         assertEquals("fund", history[1].investmentAssetId)
     }
+
+    @Test
+    fun archivedCategoriesRemainAvailableForTransactionHistory() = runBlocking {
+        repository.ensureSeedData()
+        repository.addCategory("房租", "expense", isFixedExpense = true)
+        val category = database.categoryDao().allCategories().first { it.name == "房租" }
+
+        repository.archiveCategory(category.id)
+
+        assertTrue(repository.observeCategories().first().none { it.id == category.id })
+        val historicalCategory = repository.observeAllCategories().first().single { it.id == category.id }
+        assertEquals("房租", historicalCategory.name)
+        assertTrue(historicalCategory.isArchived)
+    }
 }

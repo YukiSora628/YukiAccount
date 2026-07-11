@@ -221,4 +221,44 @@ class AccountingRepositoryTest {
         assertEquals("房租", historicalCategory.name)
         assertTrue(historicalCategory.isArchived)
     }
+
+    @Test
+    fun resetLocalDataClearsUserDataAndRestoresDefaults() = runBlocking {
+        val today = LocalDate.of(2026, 7, 10)
+        repository.ensureSeedData()
+        repository.addIncome(
+            amount = Money.cents(50_000),
+            accountId = "bank",
+            categoryId = "salary",
+            date = today,
+            note = "测试收入",
+        )
+        repository.addSubscriptionRule(
+            name = "视频会员",
+            amount = Money.cents(1_500),
+            accountId = "bank",
+            frequency = RecurringFrequency.MONTHLY,
+            startDate = today,
+        )
+        val rule = database.recurringRuleDao().allRules().single()
+        repository.skipNextRecurringOccurrence(rule.id)
+        repository.updateInvestmentValue("fund", Money.cents(12_345), today)
+        repository.addCategory("房租", "expense", isFixedExpense = true)
+
+        repository.resetLocalData()
+
+        assertTrue(database.transactionDao().allTransactions().isEmpty())
+        assertTrue(database.recurringRuleDao().allRules().isEmpty())
+        assertTrue(database.recurringRuleDao().skippedOccurrences().isEmpty())
+        assertTrue(database.investmentDao().allValuations().isEmpty())
+        assertEquals(setOf("cash", "bank", "credit-card"), database.accountDao().allAccounts().map { it.id }.toSet())
+        assertTrue(database.accountDao().allAccounts().all { !it.isArchived && it.balanceCents == 0L })
+        assertEquals(setOf("food", "subscription", "salary", "investment-input"), database.categoryDao().allCategories().map { it.id }.toSet())
+        assertEquals(setOf("fund", "gold"), database.investmentDao().allInvestments().map { it.id }.toSet())
+        assertTrue(
+            database.investmentDao().allInvestments().all {
+                !it.isArchived && it.principalCents == 0L && it.currentValueCents == 0L
+            }
+        )
+    }
 }

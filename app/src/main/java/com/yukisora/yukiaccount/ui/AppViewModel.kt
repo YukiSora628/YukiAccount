@@ -268,6 +268,14 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         return result
     }
 
+    fun resetLocalData() {
+        launchAction {
+            repository.resetLocalData()
+            generatedRecurringTransactionIds.value = emptyList()
+            statusMessage.value = "本地数据已重置"
+        }
+    }
+
     private fun launchAction(action: suspend () -> Unit) {
         viewModelScope.launch {
             try {

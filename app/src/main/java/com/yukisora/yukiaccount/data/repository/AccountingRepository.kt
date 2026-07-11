@@ -563,6 +563,16 @@ class AccountingRepository(
             )
         }
 
+    suspend fun resetLocalData() {
+        database.withTransaction {
+            clearAllDataInCurrentTransaction()
+            val now = clock()
+            database.accountDao().upsertAll(defaultAccounts(now))
+            database.categoryDao().upsertAll(defaultCategories())
+            database.investmentDao().upsertAssets(defaultInvestments(now))
+        }
+    }
+
     suspend fun importBackupJson(rawJson: String): BackupImportResult {
         val result = backupService.parseForImport(rawJson)
         if (result !is BackupImportResult.Valid) {
@@ -578,13 +588,7 @@ class AccountingRepository(
         }
 
         database.withTransaction {
-            database.transactionDao().clearAll()
-            database.recurringRuleDao().clearSkippedOccurrences()
-            database.investmentDao().clearValuations()
-            database.recurringRuleDao().clearRules()
-            database.investmentDao().clearAssets()
-            database.categoryDao().clearAll()
-            database.accountDao().clearAll()
+            clearAllDataInCurrentTransaction()
 
             database.accountDao().upsertAll(entities.accounts)
             database.categoryDao().upsertAll(entities.categories)
@@ -596,6 +600,16 @@ class AccountingRepository(
         }
 
         return result
+    }
+
+    private suspend fun clearAllDataInCurrentTransaction() {
+        database.transactionDao().clearAll()
+        database.recurringRuleDao().clearSkippedOccurrences()
+        database.investmentDao().clearValuations()
+        database.recurringRuleDao().clearRules()
+        database.investmentDao().clearAssets()
+        database.categoryDao().clearAll()
+        database.accountDao().clearAll()
     }
 
     private suspend fun addTransactionInCurrentTransaction(transaction: Transaction) {

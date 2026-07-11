@@ -89,6 +89,7 @@ private enum class EntryDialog {
     ACCOUNT,
     INVESTMENT_ASSET,
     CATEGORY,
+    RESET_LOCAL_DATA,
 }
 
 private val requiredSystemCategoryIds = setOf("subscription", "investment-input")
@@ -210,6 +211,7 @@ fun YukiAccountApp(viewModel: AppViewModel = viewModel()) {
                 onCreateRecurringRule = { dialog = EntryDialog.RECURRING_RULE },
                 onSkipNextOccurrence = viewModel::skipNextRecurringOccurrence,
                 onSetRecurringRuleEnabled = viewModel::setRecurringRuleEnabled,
+                onResetLocalData = { dialog = EntryDialog.RESET_LOCAL_DATA },
             )
         }
     }
@@ -319,6 +321,27 @@ fun YukiAccountApp(viewModel: AppViewModel = viewModel()) {
             onConfirm = { name, type, isFixedExpense ->
                 viewModel.addCategory(name, type, isFixedExpense)
                 dialog = null
+            },
+        )
+        EntryDialog.RESET_LOCAL_DATA -> AlertDialog(
+            onDismissRequest = { dialog = null },
+            title = { Text("重置本地数据") },
+            text = { Text("这会永久删除全部账户、流水、周期规则和投资记录，并恢复默认数据。") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.resetLocalData()
+                        dialog = null
+                    },
+                    modifier = Modifier.testTag("confirm-reset-local-data"),
+                ) {
+                    Text("确认重置")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { dialog = null }) {
+                    Text("取消")
+                }
             },
         )
         null -> Unit
@@ -796,6 +819,7 @@ private fun SettingsScreen(
     onCreateRecurringRule: () -> Unit,
     onSkipNextOccurrence: (RecurringRule) -> Unit,
     onSetRecurringRuleEnabled: (RecurringRule, Boolean) -> Unit,
+    onResetLocalData: () -> Unit,
 ) {
     LazyColumn(
         modifier = Modifier
@@ -843,6 +867,25 @@ private fun SettingsScreen(
                         Button(onClick = onImport, modifier = Modifier.weight(1f)) {
                             Text("导入 JSON")
                         }
+                    }
+                }
+            }
+        }
+        item {
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Text("本地数据维护", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text("清空所有本地记录并恢复默认账户、分类和投资资产。", style = MaterialTheme.typography.bodyMedium)
+                    Button(
+                        onClick = onResetLocalData,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("reset-local-data"),
+                    ) {
+                        Text("清空并恢复默认数据")
                     }
                 }
             }

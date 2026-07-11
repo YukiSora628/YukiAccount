@@ -130,6 +130,17 @@ class AccountingFlowsTest {
     }
 
     @Test
+    fun resetLocalDataRequiresConfirmation() {
+        composeRule.onNodeWithText("设置").performClick()
+        composeRule.onNodeWithTag("reset-local-data").performScrollTo().performClick()
+
+        composeRule.onNodeWithText("重置本地数据").assertIsDisplayed()
+        composeRule.onNodeWithText("确认重置").assertIsDisplayed()
+        composeRule.onNodeWithText("取消").performClick()
+        composeRule.onNodeWithText("新增分类").assertIsDisplayed()
+    }
+
+    @Test
     fun recordsInvestmentBuy() {
         val note = unique("UI测试基金买入")
 

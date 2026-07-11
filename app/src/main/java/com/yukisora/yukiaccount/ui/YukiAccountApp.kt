@@ -683,6 +683,17 @@ private fun AccountCard(
                 },
                 style = MaterialTheme.typography.bodyMedium,
             )
+            if (account.type == AccountType.CREDIT_CARD) {
+                Text(
+                    "信用额度 ${account.creditLimit?.formatCurrency() ?: "未设置"}",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Text(
+                    "账单日 ${account.billingDay?.let { "$it 日" } ?: "未设置"} / " +
+                        "还款日 ${account.repaymentDay?.let { "$it 日" } ?: "未设置"}",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
             Button(onClick = onShowTransactions, modifier = Modifier.fillMaxWidth()) {
                 Text(if (selected) "收起账户流水" else "查看账户流水")
             }

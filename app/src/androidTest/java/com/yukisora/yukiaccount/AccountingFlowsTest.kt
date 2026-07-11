@@ -62,6 +62,14 @@ class AccountingFlowsTest {
     }
 
     @Test
+    fun showsCreditCardBillingDetails() {
+        composeRule.onNodeWithText("账户").performClick()
+
+        composeRule.onNodeWithText("信用额度 未设置").assertIsDisplayed()
+        composeRule.onNodeWithText("账单日 1 日 / 还款日 20 日").assertIsDisplayed()
+    }
+
+    @Test
     fun createsRecurringRuleAndShowsGeneratedEntryPrompt() {
         val ruleName = unique("UI测试月度会员")
 

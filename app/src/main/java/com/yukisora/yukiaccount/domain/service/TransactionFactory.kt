@@ -65,6 +65,7 @@ object TransactionFactory {
         amount: Money,
         sourceAccountId: String,
         targetAccountId: String,
+        categoryId: String?,
         date: LocalDate,
         note: String,
     ): Transaction =
@@ -74,6 +75,7 @@ object TransactionFactory {
             amount = amount,
             accountId = sourceAccountId,
             targetAccountId = targetAccountId,
+            categoryId = categoryId,
             date = date,
             note = note,
         )

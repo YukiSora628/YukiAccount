@@ -5,6 +5,7 @@ import com.yukisora.yukiaccount.domain.model.Money
 import java.time.LocalDate
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 
 class InvestmentAssetFactoryTest {
@@ -74,5 +75,52 @@ class InvestmentAssetFactoryTest {
         assertEquals(Money.cents(32_500), updated.currentValue)
         assertEquals(LocalDate.of(2026, 7, 10), updated.lastValuationDate)
         assertEquals(asset.isArchived, updated.isArchived)
+    }
+
+    @Test
+    fun updateValuationAllowsZeroButRejectsNegativeValue() {
+        val asset = InvestmentAssetFactory.asset(
+            id = "fund",
+            name = "基金",
+            type = InvestmentType.FUND,
+            principal = Money.cents(30_000),
+            currentValue = Money.cents(31_000),
+            valuationDate = LocalDate.of(2026, 7, 8),
+        )
+
+        val updated = InvestmentAssetFactory.updateValuation(
+            asset = asset,
+            currentValue = Money.ZERO,
+            valuationDate = LocalDate.of(2026, 7, 10),
+        )
+
+        assertEquals(Money.ZERO, updated.currentValue)
+        assertFailsWith<IllegalArgumentException> {
+            InvestmentAssetFactory.updateValuation(
+                asset = asset,
+                currentValue = Money.cents(-1),
+                valuationDate = LocalDate.of(2026, 7, 10),
+            )
+        }
+    }
+
+    @Test
+    fun updateValuationRejectsDateBeforeLatestValuation() {
+        val asset = InvestmentAssetFactory.asset(
+            id = "fund",
+            name = "基金",
+            type = InvestmentType.FUND,
+            principal = Money.cents(30_000),
+            currentValue = Money.cents(31_000),
+            valuationDate = LocalDate.of(2026, 7, 10),
+        )
+
+        assertFailsWith<IllegalArgumentException> {
+            InvestmentAssetFactory.updateValuation(
+                asset = asset,
+                currentValue = Money.cents(30_500),
+                valuationDate = LocalDate.of(2026, 7, 9),
+            )
+        }
     }
 }

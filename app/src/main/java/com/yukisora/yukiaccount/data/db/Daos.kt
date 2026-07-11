@@ -18,6 +18,9 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface AccountDao {
+    @Query("SELECT * FROM accounts ORDER BY createdAt ASC")
+    fun observeAllAccounts(): Flow<List<AccountEntity>>
+
     @Query("SELECT * FROM accounts WHERE isArchived = 0 ORDER BY createdAt ASC")
     fun observeActiveAccounts(): Flow<List<AccountEntity>>
 
@@ -114,6 +117,9 @@ interface RecurringRuleDao {
 
 @Dao
 interface InvestmentDao {
+    @Query("SELECT * FROM investment_assets ORDER BY createdAt ASC")
+    fun observeAllInvestments(): Flow<List<InvestmentAssetEntity>>
+
     @Query("SELECT * FROM investment_assets WHERE isArchived = 0 ORDER BY createdAt ASC")
     fun observeActiveInvestments(): Flow<List<InvestmentAssetEntity>>
 
@@ -161,6 +167,9 @@ interface CategoryDao {
 
     @Query("SELECT * FROM categories ORDER BY sortOrder ASC")
     suspend fun allCategories(): List<CategoryEntity>
+
+    @Query("SELECT * FROM categories WHERE id = :id LIMIT 1")
+    suspend fun getById(id: String): CategoryEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(category: CategoryEntity)

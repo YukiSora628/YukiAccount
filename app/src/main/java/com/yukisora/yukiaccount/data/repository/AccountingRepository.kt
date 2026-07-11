@@ -44,13 +44,13 @@ class AccountingRepository(
     suspend fun ensureSeedData() {
         database.withTransaction {
             val now = clock()
-            if (database.accountDao().activeAccounts().isEmpty()) {
+            if (database.accountDao().allAccounts().isEmpty()) {
                 defaultAccounts(now).forEach { database.accountDao().upsert(it) }
             }
-            if (database.investmentDao().activeInvestments().isEmpty()) {
+            if (database.investmentDao().allInvestments().isEmpty()) {
                 defaultInvestments(now).forEach { database.investmentDao().upsertAsset(it) }
             }
-            if (database.categoryDao().activeCategories().isEmpty()) {
+            if (database.categoryDao().allCategories().isEmpty()) {
                 database.categoryDao().upsertAll(defaultCategories())
             }
         }
@@ -58,8 +58,8 @@ class AccountingRepository(
 
     fun observeDashboard(): Flow<DashboardSummary> =
         combine(
-            database.accountDao().observeActiveAccounts().map { entities -> entities.map { it.toDomain() } },
-            database.investmentDao().observeActiveInvestments().map { entities -> entities.map { it.toDomain() } },
+            database.accountDao().observeAllAccounts().map { entities -> entities.map { it.toDomain() } },
+            database.investmentDao().observeAllInvestments().map { entities -> entities.map { it.toDomain() } },
             database.transactionDao().observeTransactions().map { entities -> entities.map { it.toDomain() } },
             database.categoryDao().observeActiveCategories(),
         ) { accounts, investments, transactions, categories ->
@@ -271,6 +271,7 @@ class AccountingRepository(
         amount: Money,
         sourceAccountId: String,
         targetAccountId: String,
+        categoryId: String?,
         date: LocalDate = LocalDate.now(),
         note: String,
     ) {
@@ -280,6 +281,7 @@ class AccountingRepository(
                 amount = amount,
                 sourceAccountId = sourceAccountId,
                 targetAccountId = targetAccountId,
+                categoryId = categoryId,
                 date = date,
                 note = note,
             )
@@ -293,17 +295,19 @@ class AccountingRepository(
         date: LocalDate = LocalDate.now(),
         note: String,
     ) {
-        addTransaction(
-            TransactionFactory.investmentBuy(
-                id = UUID.randomUUID().toString(),
-                amount = amount,
-                accountId = accountId,
-                categoryId = "investment-input",
-                investmentAssetId = investmentAssetId,
-                date = date,
-                note = note,
-            )
+        val transaction = TransactionFactory.investmentBuy(
+            id = UUID.randomUUID().toString(),
+            amount = amount,
+            accountId = accountId,
+            categoryId = "investment-input",
+            investmentAssetId = investmentAssetId,
+            date = date,
+            note = note,
         )
+        database.withTransaction {
+            ensureSystemCategory("investment-input")
+            addTransactionInCurrentTransaction(transaction)
+        }
     }
 
     suspend fun addCreditCardRepayment(
@@ -333,19 +337,22 @@ class AccountingRepository(
         startDate: LocalDate = LocalDate.now(),
         endDate: LocalDate? = null,
     ) {
-        val now = clock()
-        database.recurringRuleDao().upsert(
-            RecurringRuleFactory.subscriptionExpense(
-                id = UUID.randomUUID().toString(),
-                name = name,
-                amount = amount,
-                accountId = accountId,
-                categoryId = "subscription",
-                frequency = frequency,
-                startDate = startDate,
-                endDate = endDate,
-            ).toEntity(now)
-        )
+        database.withTransaction {
+            ensureSystemCategory("subscription")
+            val now = clock()
+            database.recurringRuleDao().upsert(
+                RecurringRuleFactory.subscriptionExpense(
+                    id = UUID.randomUUID().toString(),
+                    name = name,
+                    amount = amount,
+                    accountId = accountId,
+                    categoryId = "subscription",
+                    frequency = frequency,
+                    startDate = startDate,
+                    endDate = endDate,
+                ).toEntity(now)
+            )
+        }
     }
 
     suspend fun addInvestmentBuyRule(
@@ -357,20 +364,23 @@ class AccountingRepository(
         startDate: LocalDate = LocalDate.now(),
         endDate: LocalDate? = null,
     ) {
-        val now = clock()
-        database.recurringRuleDao().upsert(
-            RecurringRuleFactory.investmentBuy(
-                id = UUID.randomUUID().toString(),
-                name = name,
-                amount = amount,
-                accountId = accountId,
-                investmentAssetId = investmentAssetId,
-                categoryId = "investment-input",
-                frequency = frequency,
-                startDate = startDate,
-                endDate = endDate,
-            ).toEntity(now)
-        )
+        database.withTransaction {
+            ensureSystemCategory("investment-input")
+            val now = clock()
+            database.recurringRuleDao().upsert(
+                RecurringRuleFactory.investmentBuy(
+                    id = UUID.randomUUID().toString(),
+                    name = name,
+                    amount = amount,
+                    accountId = accountId,
+                    investmentAssetId = investmentAssetId,
+                    categoryId = "investment-input",
+                    frequency = frequency,
+                    startDate = startDate,
+                    endDate = endDate,
+                ).toEntity(now)
+            )
+        }
     }
 
     suspend fun skipNextRecurringOccurrence(ruleId: String, reason: String = "") {
@@ -457,8 +467,8 @@ class AccountingRepository(
                 return@withTransaction 0
             }
 
-            val accountEntities = database.accountDao().activeAccounts()
-            val investmentEntities = database.investmentDao().activeInvestments()
+            val accountEntities = database.accountDao().allAccounts()
+            val investmentEntities = database.investmentDao().allInvestments()
             var accounts = accountEntities.map { it.toDomain() }
             var investments = investmentEntities.map { it.toDomain() }
 
@@ -560,6 +570,16 @@ class AccountingRepository(
     }
 
     private suspend fun addTransactionInCurrentTransaction(transaction: Transaction) {
+        transaction.categoryId?.let { categoryId ->
+            val category = requireNotNull(database.categoryDao().getById(categoryId)) {
+                "Transaction category not found: $categoryId"
+            }
+            require(!category.isArchived) { "Transaction category is archived: $categoryId" }
+            require(category.type == transaction.type.categoryType()) {
+                "Transaction category type does not match ${transaction.type}: $categoryId"
+            }
+        }
+
         val accountEntities = database.accountDao().activeAccounts()
         val investmentEntities = database.investmentDao().activeInvestments()
         val accounts = accountEntities.map { it.toDomain() }
@@ -581,6 +601,19 @@ class AccountingRepository(
         }
         database.transactionDao().insert(transaction.toEntity(now))
     }
+
+    private suspend fun ensureSystemCategory(categoryId: String) {
+        val canonical = defaultCategories().first { it.id == categoryId }
+        val current = database.categoryDao().getById(categoryId)
+        if (current == null) {
+            database.categoryDao().upsert(canonical)
+        } else if (current.type != canonical.type ||
+            current.isFixedExpense != canonical.isFixedExpense ||
+            current.isArchived
+        ) {
+            database.categoryDao().upsert(canonical.copy(sortOrder = current.sortOrder))
+        }
+    }
 }
 
 data class DashboardSummary(
@@ -596,6 +629,16 @@ data class RecurringGenerationSummary(
 ) {
     val count: Int = transactionIds.size
 }
+
+private fun TransactionType.categoryType(): String =
+    when (this) {
+        TransactionType.EXPENSE,
+        TransactionType.REFUND -> "expense"
+        TransactionType.INCOME -> "income"
+        TransactionType.TRANSFER,
+        TransactionType.CREDIT_CARD_REPAYMENT -> "transfer"
+        TransactionType.INVESTMENT_BUY -> "investment"
+    }
 
 private fun defaultCategories(): List<CategoryEntity> =
     listOf(

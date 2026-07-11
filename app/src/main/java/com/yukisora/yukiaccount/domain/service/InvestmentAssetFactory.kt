@@ -13,8 +13,10 @@ object InvestmentAssetFactory {
         principal: Money,
         currentValue: Money,
         valuationDate: LocalDate?,
-    ): InvestmentAsset =
-        InvestmentAsset(
+    ): InvestmentAsset {
+        require(principal >= Money.ZERO) { "Investment principal must not be negative" }
+        require(currentValue >= Money.ZERO) { "Investment current value must not be negative" }
+        return InvestmentAsset(
             id = id,
             name = name,
             type = type,
@@ -22,6 +24,7 @@ object InvestmentAssetFactory {
             currentValue = currentValue,
             lastValuationDate = valuationDate,
         )
+    }
 
     fun archive(asset: InvestmentAsset): InvestmentAsset =
         asset.copy(isArchived = true)
@@ -30,9 +33,14 @@ object InvestmentAssetFactory {
         asset: InvestmentAsset,
         currentValue: Money,
         valuationDate: LocalDate,
-    ): InvestmentAsset =
-        asset.copy(
+    ): InvestmentAsset {
+        require(currentValue >= Money.ZERO) { "Investment current value must not be negative" }
+        require(asset.lastValuationDate?.let { !valuationDate.isBefore(it) } != false) {
+            "Valuation date must not be before the latest valuation date"
+        }
+        return asset.copy(
             currentValue = currentValue,
             lastValuationDate = valuationDate,
         )
+    }
 }

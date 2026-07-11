@@ -243,9 +243,10 @@ fun YukiAccountApp(viewModel: AppViewModel = viewModel()) {
         )
         EntryDialog.TRANSFER -> TransferDialog(
             accounts = state.accounts.filter { it.type != AccountType.CREDIT_CARD },
+            categories = state.categories.filter { it.type == "transfer" },
             onDismiss = { dialog = null },
-            onConfirm = { amount, sourceAccount, targetAccount, date, note ->
-                viewModel.addTransfer(amount, sourceAccount, targetAccount, date, note)
+            onConfirm = { amount, sourceAccount, targetAccount, category, date, note ->
+                viewModel.addTransfer(amount, sourceAccount, targetAccount, category, date, note)
                 dialog = null
             },
         )
@@ -1118,8 +1119,9 @@ private fun AccountDialog(
 @Composable
 private fun TransferDialog(
     accounts: List<Account>,
+    categories: List<Category>,
     onDismiss: () -> Unit,
-    onConfirm: (Money, Account, Account, LocalDate, String) -> Unit,
+    onConfirm: (Money, Account, Account, Category?, LocalDate, String) -> Unit,
 ) {
     if (accounts.size < 2) {
         SimpleMessageDialog(title = "账户转账", message = "需要至少两个资产账户", onDismiss = onDismiss)
@@ -1130,6 +1132,7 @@ private fun TransferDialog(
     var note by remember { mutableStateOf("") }
     var selectedSource by remember(accounts) { mutableStateOf(accounts.first()) }
     var selectedTarget by remember(accounts) { mutableStateOf(accounts.first { it.id != selectedSource.id }) }
+    var selectedCategory by remember(categories) { mutableStateOf(categories.firstOrNull()) }
     val amount = amountText.toMoneyOrNull()
     val date = dateText.toLocalDateOrNull()
 
@@ -1154,6 +1157,13 @@ private fun TransferDialog(
                     selected = selectedTarget,
                     onSelected = { selectedTarget = it },
                 )
+                if (selectedCategory != null) {
+                    CategorySelector(
+                        categories = categories,
+                        selected = requireNotNull(selectedCategory),
+                        onSelected = { selectedCategory = it },
+                    )
+                }
                 DateInput(value = dateText, onValueChange = { dateText = it })
                 OutlinedTextField(value = note, onValueChange = { note = it }, label = { Text("备注") })
             }
@@ -1161,7 +1171,16 @@ private fun TransferDialog(
         confirmButton = {
             TextButton(
                 enabled = amount != null && date != null && selectedSource.id != selectedTarget.id,
-                onClick = { onConfirm(requireNotNull(amount), selectedSource, selectedTarget, requireNotNull(date), note) },
+                onClick = {
+                    onConfirm(
+                        requireNotNull(amount),
+                        selectedSource,
+                        selectedTarget,
+                        selectedCategory,
+                        requireNotNull(date),
+                        note,
+                    )
+                },
             ) { Text("保存转账") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
@@ -1385,7 +1404,7 @@ private fun ValuationDialog(
     var amountText by remember { mutableStateOf("") }
     var dateText by remember { mutableStateOf(LocalDate.now().toString()) }
     var selectedInvestment by remember(investments) { mutableStateOf(investments.first()) }
-    val amount = amountText.toMoneyOrNull()
+    val amount = amountText.toNonNegativeMoneyOrNull()
     val date = dateText.toLocalDateOrNull()
 
     AlertDialog(
@@ -1628,7 +1647,7 @@ private fun CategoryTypeSelector(
     selected: String,
     onSelected: (String) -> Unit,
 ) {
-    val categoryTypes = listOf("expense", "income", "investment")
+    val categoryTypes = listOf("expense", "income", "transfer", "investment")
     var expanded by remember { mutableStateOf(false) }
     ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
         OutlinedTextField(
@@ -1816,6 +1835,7 @@ private fun String.categoryTypeLabel(): String =
     when (this) {
         "expense" -> "支出"
         "income" -> "收入"
+        "transfer" -> "转账"
         "investment" -> "投资"
         else -> this
     }

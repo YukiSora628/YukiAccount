@@ -89,11 +89,23 @@ fun Money.formatCurrency(): String {
 }
 
 fun String.toMoneyOrNull(): Money? {
+    val value = toNonNegativeMoneyOrNull() ?: return null
+    return value.takeIf { it > Money.ZERO }
+}
+
+fun String.toNonNegativeMoneyOrNull(): Money? {
     val normalized = trim()
     if (normalized.isEmpty()) return null
     val value = normalized.toBigDecimalOrNull() ?: return null
-    if (value <= java.math.BigDecimal.ZERO) return null
-    return Money.cents(value.movePointRight(2).setScale(0, java.math.RoundingMode.HALF_UP).longValueExact())
+    if (value < java.math.BigDecimal.ZERO) return null
+    return runCatching {
+        Money.cents(
+            value
+                .movePointRight(2)
+                .setScale(0, java.math.RoundingMode.HALF_UP)
+                .longValueExact()
+        )
+    }.getOrNull()
 }
 
 private val defaultAccounts = listOf(

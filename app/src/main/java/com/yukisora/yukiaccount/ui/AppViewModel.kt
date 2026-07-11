@@ -89,7 +89,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun addAssetAccount(name: String, type: AccountType, balance: Money) {
-        viewModelScope.launch {
+        launchAction {
             repository.addAssetAccount(name, type, balance)
         }
     }
@@ -101,61 +101,68 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         billingDay: Int?,
         repaymentDay: Int?,
     ) {
-        viewModelScope.launch {
+        launchAction {
             repository.addCreditCardAccount(name, unpaidBalance, creditLimit, billingDay, repaymentDay)
         }
     }
 
     fun addInvestmentAsset(name: String, type: InvestmentType, principal: Money, currentValue: Money) {
-        viewModelScope.launch {
+        launchAction {
             repository.addInvestmentAsset(name, type, principal, currentValue)
         }
     }
 
     fun archiveAccount(account: Account) {
-        viewModelScope.launch {
+        launchAction {
             repository.archiveAccount(account.id)
         }
     }
 
     fun archiveInvestmentAsset(investment: InvestmentAsset) {
-        viewModelScope.launch {
+        launchAction {
             repository.archiveInvestmentAsset(investment.id)
         }
     }
 
     fun addCategory(name: String, type: String, isFixedExpense: Boolean) {
-        viewModelScope.launch {
+        launchAction {
             repository.addCategory(name, type, isFixedExpense)
         }
     }
 
     fun addExpense(amount: Money, account: Account, category: Category?, date: LocalDate, note: String) {
-        viewModelScope.launch {
+        launchAction {
             repository.addExpense(amount, account.id, category?.id, date, note)
         }
     }
 
     fun addIncome(amount: Money, account: Account, category: Category?, date: LocalDate, note: String) {
-        viewModelScope.launch {
+        launchAction {
             repository.addIncome(amount, account.id, category?.id, date, note)
         }
     }
 
     fun addRefund(amount: Money, account: Account, category: Category?, date: LocalDate, note: String) {
-        viewModelScope.launch {
+        launchAction {
             repository.addRefund(amount, account.id, category?.id, date, note)
         }
     }
 
-    fun addTransfer(amount: Money, sourceAccount: Account, targetAccount: Account, date: LocalDate, note: String) {
-        viewModelScope.launch {
-            repository.addTransfer(amount, sourceAccount.id, targetAccount.id, date, note)
+    fun addTransfer(
+        amount: Money,
+        sourceAccount: Account,
+        targetAccount: Account,
+        category: Category?,
+        date: LocalDate,
+        note: String,
+    ) {
+        launchAction {
+            repository.addTransfer(amount, sourceAccount.id, targetAccount.id, category?.id, date, note)
         }
     }
 
     fun addInvestmentBuy(amount: Money, account: Account, investment: InvestmentAsset, date: LocalDate, note: String) {
-        viewModelScope.launch {
+        launchAction {
             repository.addInvestmentBuy(amount, account.id, investment.id, date, note)
         }
     }
@@ -167,7 +174,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         date: LocalDate,
         note: String,
     ) {
-        viewModelScope.launch {
+        launchAction {
             repository.addCreditCardRepayment(amount, sourceAccount.id, creditCardAccount.id, date, note)
         }
     }
@@ -180,7 +187,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         startDate: LocalDate,
         endDate: LocalDate?,
     ) {
-        viewModelScope.launch {
+        launchAction {
             repository.addSubscriptionRule(name, amount, account.id, frequency, startDate, endDate)
             generatePendingRecurringTransactions()
         }
@@ -195,32 +202,32 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         startDate: LocalDate,
         endDate: LocalDate?,
     ) {
-        viewModelScope.launch {
+        launchAction {
             repository.addInvestmentBuyRule(name, amount, account.id, investment.id, frequency, startDate, endDate)
             generatePendingRecurringTransactions()
         }
     }
 
     fun skipNextRecurringOccurrence(rule: RecurringRule) {
-        viewModelScope.launch {
+        launchAction {
             repository.skipNextRecurringOccurrence(rule.id)
         }
     }
 
     fun setRecurringRuleEnabled(rule: RecurringRule, enabled: Boolean) {
-        viewModelScope.launch {
+        launchAction {
             repository.setRecurringRuleEnabled(rule.id, enabled)
         }
     }
 
     fun updateInvestmentValue(investment: InvestmentAsset, value: Money, date: LocalDate) {
-        viewModelScope.launch {
+        launchAction {
             repository.updateInvestmentValue(investment.id, value, date)
         }
     }
 
     fun undoLastRecurringGeneration() {
-        viewModelScope.launch {
+        launchAction {
             val transactionIds = generatedRecurringTransactionIds.value
             if (transactionIds.isNotEmpty()) {
                 repository.undoGeneratedTransactions(transactionIds)
@@ -238,6 +245,18 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             generatedRecurringTransactionIds.value = emptyList()
         }
         return result
+    }
+
+    private fun launchAction(action: suspend () -> Unit) {
+        viewModelScope.launch {
+            try {
+                action()
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                statusMessage.value = "操作失败：${error.message ?: "未知错误"}"
+            }
+        }
     }
 
     private suspend fun generatePendingRecurringTransactions() {

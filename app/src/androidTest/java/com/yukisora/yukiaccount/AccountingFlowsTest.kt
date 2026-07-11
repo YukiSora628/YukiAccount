@@ -93,7 +93,7 @@ class AccountingFlowsTest {
     @Test
     fun updatesInvestmentValuation() {
         composeRule.onNodeWithText("更新市值").performClick()
-        composeRule.onNodeWithTag("valuation-value").performTextInput("123.45")
+        composeRule.onNodeWithTag("valuation-value").performTextInput("0")
         composeRule.onNodeWithText("更新").performClick()
 
         composeRule.onNodeWithText("投资").performClick()

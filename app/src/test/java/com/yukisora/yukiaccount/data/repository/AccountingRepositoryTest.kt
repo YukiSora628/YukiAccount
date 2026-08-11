@@ -379,6 +379,32 @@ class AccountingRepositoryTest {
         assertTrue(database.transactionDao().allTransactions().isEmpty())
     }
 
+    @Test
+    fun recurringGenerationCanRunRepeatedlyAcrossResumeDates() = runBlocking {
+        val firstDay = LocalDate.of(2026, 7, 10)
+        repository.ensureSeedData()
+        repository.addInvestmentBuyRule(
+            name = "每日基金定投",
+            amount = Money.cents(1_000),
+            accountId = "bank",
+            investmentAssetId = "fund",
+            frequency = RecurringFrequency.DAILY,
+            startDate = firstDay,
+        )
+
+        val firstRun = repository.generateRecurringTransactions(firstDay)
+        val duplicateRun = repository.generateRecurringTransactions(firstDay)
+        val nextDayRun = repository.generateRecurringTransactions(firstDay.plusDays(1))
+
+        assertEquals(1, firstRun.count)
+        assertEquals(0, duplicateRun.count)
+        assertEquals(1, nextDayRun.count)
+        assertEquals(
+            listOf(firstDay, firstDay.plusDays(1)),
+            database.transactionDao().allTransactions().map { it.occurrenceDate }.sortedBy { it },
+        )
+    }
+
     private suspend fun assertCannotEnable(ruleId: String) {
         assertRejected {
             repository.setRecurringRuleEnabled(ruleId, enabled = true)

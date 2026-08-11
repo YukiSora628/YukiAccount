@@ -25,6 +25,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = AccountingRepository(
@@ -32,6 +34,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     )
     private val generatedRecurringTransactionIds = MutableStateFlow<List<String>>(emptyList())
     private val statusMessage = MutableStateFlow<String?>(null)
+    private val recurringGenerationMutex = Mutex()
 
     val uiState: StateFlow<AccountingUiState> =
         combine(
@@ -115,6 +118,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     fun clearStatusMessage() {
         statusMessage.value = null
+    }
+
+    fun refreshRecurringTransactions() {
+        viewModelScope.launch {
+            generatePendingRecurringTransactions()
+        }
     }
 
     fun addAssetAccount(name: String, type: AccountType, balance: Money) {
@@ -303,14 +312,16 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private suspend fun generatePendingRecurringTransactions() {
-        try {
-            val generatedIds = repository.generateRecurringTransactions().transactionIds
-            generatedRecurringTransactionIds.value =
-                (generatedRecurringTransactionIds.value + generatedIds).distinct()
-        } catch (error: CancellationException) {
-            throw error
-        } catch (error: Exception) {
-            statusMessage.value = "周期补记失败：${error.message ?: "未知错误"}"
+        recurringGenerationMutex.withLock {
+            try {
+                val generatedIds = repository.generateRecurringTransactions().transactionIds
+                generatedRecurringTransactionIds.value =
+                    (generatedRecurringTransactionIds.value + generatedIds).distinct()
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                statusMessage.value = "周期补记失败：${error.message ?: "未知错误"}"
+            }
         }
     }
 }

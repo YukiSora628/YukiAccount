@@ -150,17 +150,32 @@ class AccountingRepository(
         currentValue: Money,
         valuationDate: LocalDate? = LocalDate.now(),
     ) {
-        val now = clock()
-        database.investmentDao().upsertAsset(
-            InvestmentAssetFactory.asset(
-                id = UUID.randomUUID().toString(),
-                name = name,
-                type = type,
-                principal = principal,
-                currentValue = currentValue,
-                valuationDate = valuationDate,
-            ).toEntity(now)
-        )
+        database.withTransaction {
+            val now = clock()
+            val investmentAssetId = UUID.randomUUID().toString()
+            database.investmentDao().upsertAsset(
+                InvestmentAssetFactory.asset(
+                    id = investmentAssetId,
+                    name = name,
+                    type = type,
+                    principal = principal,
+                    currentValue = currentValue,
+                    valuationDate = valuationDate,
+                ).toEntity(now)
+            )
+            valuationDate?.let { date ->
+                database.investmentDao().insertValuation(
+                    ValuationSnapshotEntity(
+                        id = UUID.randomUUID().toString(),
+                        investmentAssetId = investmentAssetId,
+                        date = date,
+                        valueCents = currentValue.cents,
+                        note = "初始市值",
+                        createdAt = now,
+                    )
+                )
+            }
+        }
     }
 
     suspend fun addAssetAccount(name: String, type: AccountType, balance: Money) {

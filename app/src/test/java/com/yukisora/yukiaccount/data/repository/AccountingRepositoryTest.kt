@@ -5,6 +5,7 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.yukisora.yukiaccount.data.db.YukiAccountDatabase
 import com.yukisora.yukiaccount.data.model.toEntity
+import com.yukisora.yukiaccount.domain.model.InvestmentType
 import com.yukisora.yukiaccount.domain.model.Money
 import com.yukisora.yukiaccount.domain.model.RecurringFrequency
 import com.yukisora.yukiaccount.domain.service.RecurringRuleFactory
@@ -206,6 +207,26 @@ class AccountingRepositoryTest {
         assertEquals(Money.cents(10_500), history[0].value)
         assertEquals(LocalDate.of(2026, 7, 9), history[1].date)
         assertEquals("fund", history[1].investmentAssetId)
+    }
+
+    @Test
+    fun creatingInvestmentAssetAddsInitialValuationSnapshot() = runBlocking {
+        val valuationDate = LocalDate.of(2026, 7, 10)
+
+        repository.addInvestmentAsset(
+            name = "沪深300",
+            type = InvestmentType.FUND,
+            principal = Money.cents(20_000),
+            currentValue = Money.cents(21_500),
+            valuationDate = valuationDate,
+        )
+
+        val asset = database.investmentDao().allInvestments().single()
+        val snapshot = database.investmentDao().allValuations().single()
+        assertEquals(asset.id, snapshot.investmentAssetId)
+        assertEquals(valuationDate, asset.lastValuationDate)
+        assertEquals(valuationDate, snapshot.date)
+        assertEquals(asset.currentValueCents, snapshot.valueCents)
     }
 
     @Test

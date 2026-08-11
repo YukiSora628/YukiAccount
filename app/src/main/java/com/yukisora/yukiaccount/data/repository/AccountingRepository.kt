@@ -369,18 +369,18 @@ class AccountingRepository(
         database.withTransaction {
             ensureSystemCategory("subscription")
             val now = clock()
-            database.recurringRuleDao().upsert(
-                RecurringRuleFactory.subscriptionExpense(
-                    id = UUID.randomUUID().toString(),
-                    name = name,
-                    amount = amount,
-                    accountId = accountId,
-                    categoryId = "subscription",
-                    frequency = frequency,
-                    startDate = startDate,
-                    endDate = endDate,
-                ).toEntity(now)
+            val rule = RecurringRuleFactory.subscriptionExpense(
+                id = UUID.randomUUID().toString(),
+                name = name,
+                amount = amount,
+                accountId = accountId,
+                categoryId = "subscription",
+                frequency = frequency,
+                startDate = startDate,
+                endDate = endDate,
             )
+            requireActiveRecurringRuleReferences(rule)
+            database.recurringRuleDao().upsert(rule.toEntity(now))
         }
     }
 
@@ -396,19 +396,19 @@ class AccountingRepository(
         database.withTransaction {
             ensureSystemCategory("investment-input")
             val now = clock()
-            database.recurringRuleDao().upsert(
-                RecurringRuleFactory.investmentBuy(
-                    id = UUID.randomUUID().toString(),
-                    name = name,
-                    amount = amount,
-                    accountId = accountId,
-                    investmentAssetId = investmentAssetId,
-                    categoryId = "investment-input",
-                    frequency = frequency,
-                    startDate = startDate,
-                    endDate = endDate,
-                ).toEntity(now)
+            val rule = RecurringRuleFactory.investmentBuy(
+                id = UUID.randomUUID().toString(),
+                name = name,
+                amount = amount,
+                accountId = accountId,
+                investmentAssetId = investmentAssetId,
+                categoryId = "investment-input",
+                frequency = frequency,
+                startDate = startDate,
+                endDate = endDate,
             )
+            requireActiveRecurringRuleReferences(rule)
+            database.recurringRuleDao().upsert(rule.toEntity(now))
         }
     }
 
@@ -434,7 +434,11 @@ class AccountingRepository(
             val ruleEntity = requireNotNull(database.recurringRuleDao().getRule(ruleId)) {
                 "Recurring rule not found: $ruleId"
             }
-            val updatedRule = RecurringRuleFactory.setEnabled(ruleEntity.toDomain(), enabled)
+            val rule = ruleEntity.toDomain()
+            if (enabled) {
+                requireActiveRecurringRuleReferences(rule)
+            }
+            val updatedRule = RecurringRuleFactory.setEnabled(rule, enabled)
             database.recurringRuleDao().update(
                 updatedRule.toEntity(now).copy(createdAt = ruleEntity.createdAt)
             )
@@ -471,15 +475,34 @@ class AccountingRepository(
     suspend fun generateRecurringTransactions(today: LocalDate = LocalDate.now()): RecurringGenerationSummary =
         database.withTransaction {
             val now = clock()
+            val enabledRuleEntities = database.recurringRuleDao().enabledRules()
+            val availableRules = enabledRuleEntities.mapNotNull { ruleEntity ->
+                val rule = ruleEntity.toDomain()
+                if (recurringRuleUnavailableReason(rule) == null) {
+                    rule
+                } else {
+                    database.recurringRuleDao().update(
+                        RecurringRuleFactory.setEnabled(rule, enabled = false)
+                            .toEntity(now)
+                            .copy(createdAt = ruleEntity.createdAt)
+                    )
+                    null
+                }
+            }
             val result = RecurringGenerator.generate(
-                rules = database.recurringRuleDao().enabledRules().map { it.toDomain() },
+                rules = availableRules,
                 existingTransactions = database.transactionDao().allTransactions().map { it.toDomain() },
                 skippedOccurrences = database.recurringRuleDao().skippedOccurrences().map { it.toDomain() },
                 today = today,
             )
 
             result.transactions.forEach { addTransactionInCurrentTransaction(it) }
-            result.updatedRules.forEach { database.recurringRuleDao().update(it.toEntity(now)) }
+            result.updatedRules.forEach { updatedRule ->
+                val original = enabledRuleEntities.first { it.id == updatedRule.id }
+                database.recurringRuleDao().update(
+                    updatedRule.toEntity(now).copy(createdAt = original.createdAt)
+                )
+            }
             RecurringGenerationSummary(transactionIds = result.transactions.map { it.id })
         }
 
@@ -610,6 +633,35 @@ class AccountingRepository(
         database.investmentDao().clearAssets()
         database.categoryDao().clearAll()
         database.accountDao().clearAll()
+    }
+
+    private suspend fun requireActiveRecurringRuleReferences(rule: RecurringRule) {
+        recurringRuleUnavailableReason(rule)?.let { reason ->
+            throw IllegalArgumentException(reason)
+        }
+    }
+
+    private suspend fun recurringRuleUnavailableReason(rule: RecurringRule): String? {
+        val account = database.accountDao().getById(rule.accountId)
+            ?: return "周期规则关联账户不存在"
+        if (account.isArchived) return "周期规则关联账户已归档"
+
+        rule.targetAccountId?.let { targetAccountId ->
+            val targetAccount = database.accountDao().getById(targetAccountId)
+                ?: return "周期规则关联目标账户不存在"
+            if (targetAccount.isArchived) return "周期规则关联目标账户已归档"
+        }
+        rule.categoryId?.let { categoryId ->
+            val category = database.categoryDao().getById(categoryId)
+                ?: return "周期规则关联分类不存在"
+            if (category.isArchived) return "周期规则关联分类已归档"
+        }
+        rule.investmentAssetId?.let { investmentAssetId ->
+            val investment = database.investmentDao().getAsset(investmentAssetId)
+                ?: return "周期规则关联投资资产不存在"
+            if (investment.isArchived) return "周期规则关联投资资产已归档"
+        }
+        return null
     }
 
     private suspend fun addTransactionInCurrentTransaction(transaction: Transaction) {

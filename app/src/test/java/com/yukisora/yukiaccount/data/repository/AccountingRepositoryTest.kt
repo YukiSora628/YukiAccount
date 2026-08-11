@@ -261,4 +261,116 @@ class AccountingRepositoryTest {
             }
         )
     }
+
+    @Test
+    fun disabledRuleCannotBeEnabledWhenAnyReferenceIsArchived() = runBlocking {
+        val today = LocalDate.of(2026, 7, 10)
+        repository.ensureSeedData()
+        repository.addSubscriptionRule(
+            name = "视频会员",
+            amount = Money.cents(1_500),
+            accountId = "bank",
+            frequency = RecurringFrequency.MONTHLY,
+            startDate = today,
+        )
+        val accountRuleId = database.recurringRuleDao().allRules().single().id
+        repository.archiveAccount("bank")
+        assertCannotEnable(accountRuleId)
+
+        repository.resetLocalData()
+        repository.addInvestmentBuyRule(
+            name = "基金定投",
+            amount = Money.cents(1_000),
+            accountId = "bank",
+            investmentAssetId = "fund",
+            frequency = RecurringFrequency.DAILY,
+            startDate = today,
+        )
+        val investmentRuleId = database.recurringRuleDao().allRules().single().id
+        repository.archiveInvestmentAsset("fund")
+        assertCannotEnable(investmentRuleId)
+
+        repository.resetLocalData()
+        repository.addCategory("房租", "expense", isFixedExpense = true)
+        val category = database.categoryDao().allCategories().first { it.name == "房租" }
+        val categoryRule = RecurringRuleFactory.subscriptionExpense(
+            id = "rent-rule",
+            name = "房租",
+            amount = Money.cents(200_000),
+            accountId = "bank",
+            categoryId = category.id,
+            frequency = RecurringFrequency.MONTHLY,
+            startDate = today,
+        )
+        database.recurringRuleDao().upsert(categoryRule.toEntity(now = 100L))
+        repository.archiveCategory(category.id)
+        assertCannotEnable(categoryRule.id)
+    }
+
+    @Test
+    fun ruleCreationRejectsArchivedAccountAndInvestment() = runBlocking {
+        val today = LocalDate.of(2026, 7, 10)
+        repository.ensureSeedData()
+        repository.archiveAccount("bank")
+        assertRejected {
+            repository.addSubscriptionRule(
+                name = "视频会员",
+                amount = Money.cents(1_500),
+                accountId = "bank",
+                frequency = RecurringFrequency.MONTHLY,
+                startDate = today,
+            )
+        }
+
+        repository.resetLocalData()
+        repository.archiveInvestmentAsset("fund")
+        assertRejected {
+            repository.addInvestmentBuyRule(
+                name = "基金定投",
+                amount = Money.cents(1_000),
+                accountId = "bank",
+                investmentAssetId = "fund",
+                frequency = RecurringFrequency.DAILY,
+                startDate = today,
+            )
+        }
+    }
+
+    @Test
+    fun generationDisablesLegacyRuleWithArchivedReference() = runBlocking {
+        val today = LocalDate.of(2026, 7, 10)
+        repository.ensureSeedData()
+        repository.addSubscriptionRule(
+            name = "视频会员",
+            amount = Money.cents(1_500),
+            accountId = "bank",
+            frequency = RecurringFrequency.MONTHLY,
+            startDate = today,
+        )
+        val rule = database.recurringRuleDao().allRules().single()
+        val account = requireNotNull(database.accountDao().getById("bank"))
+        database.accountDao().update(account.copy(isArchived = true))
+
+        val generated = repository.generateRecurringTransactions(today)
+
+        assertEquals(0, generated.count)
+        assertEquals(false, requireNotNull(database.recurringRuleDao().getRule(rule.id)).enabled)
+        assertTrue(database.transactionDao().allTransactions().isEmpty())
+    }
+
+    private suspend fun assertCannotEnable(ruleId: String) {
+        assertRejected {
+            repository.setRecurringRuleEnabled(ruleId, enabled = true)
+        }
+    }
+
+    private suspend fun assertRejected(block: suspend () -> Unit) {
+        var rejected = false
+        try {
+            block()
+        } catch (_: IllegalArgumentException) {
+            rejected = true
+        }
+        assertTrue("Expected operation with archived reference to be rejected", rejected)
+    }
 }

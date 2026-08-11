@@ -354,6 +354,47 @@ class BackupMapperTest {
     }
 
     @Test
+    fun enabledRecurringRulesCannotReferenceArchivedObjects() {
+        assertInvalidImport(
+            document = backupDocument(accounts = listOf(account().copy(isArchived = true))),
+            reason = "备份文件包含启用规则引用已归档账户",
+        )
+        assertInvalidImport(
+            document = backupDocument(categories = listOf(category().copy(isArchived = true))),
+            reason = "备份文件包含启用规则引用已归档分类",
+        )
+        val investmentCategory = category().copy(type = "investment")
+        assertInvalidImport(
+            document = backupDocument(
+                categories = listOf(investmentCategory),
+                transactions = emptyList(),
+                recurringRules = listOf(
+                    recurringRule().copy(
+                        transactionType = TransactionType.INVESTMENT_BUY,
+                        categoryId = investmentCategory.id,
+                        investmentAssetId = "fund",
+                    )
+                ),
+                investmentAssets = listOf(investment().copy(isArchived = true)),
+            ),
+            reason = "备份文件包含启用规则引用已归档投资资产",
+        )
+    }
+
+    @Test
+    fun disabledRecurringRuleMayKeepArchivedReferences() {
+        val document = backupDocument(
+            accounts = listOf(account().copy(isArchived = true)),
+            categories = listOf(category().copy(isArchived = true)),
+            recurringRules = listOf(recurringRule().copy(enabled = false)),
+        )
+
+        val result = BackupService().parseForImport(BackupService().export(document))
+
+        assertTrue(result is BackupImportResult.Valid)
+    }
+
+    @Test
     fun transactionMissingRequiredTargetIsRejectedBeforeImport() {
         val document = backupDocument()
 

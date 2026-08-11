@@ -254,6 +254,9 @@ class BackupService(
     private fun BackupDocument.semanticIntegrityReason(): String? {
         val accountTypes = accounts.associate { it.id to AccountType.valueOf(it.type) }
         val categoryTypes = categories.associate { it.id to it.type }
+        val archivedAccountIds = accounts.filter { it.isArchived }.map { it.id }.toSet()
+        val archivedCategoryIds = categories.filter { it.isArchived }.map { it.id }.toSet()
+        val archivedInvestmentAssetIds = investmentAssets.filter { it.isArchived }.map { it.id }.toSet()
 
         transactions.forEach { transaction ->
             val sourceType = accountTypes.getValue(transaction.accountId)
@@ -313,6 +316,15 @@ class BackupService(
         }
 
         recurringRules.forEach { rule ->
+            if (rule.enabled && (rule.accountId in archivedAccountIds || rule.targetAccountId in archivedAccountIds)) {
+                return "备份文件包含启用规则引用已归档账户"
+            }
+            if (rule.enabled && rule.categoryId in archivedCategoryIds) {
+                return "备份文件包含启用规则引用已归档分类"
+            }
+            if (rule.enabled && rule.investmentAssetId in archivedInvestmentAssetIds) {
+                return "备份文件包含启用规则引用已归档投资资产"
+            }
             if (accountTypes.getValue(rule.accountId) == AccountType.CREDIT_CARD) {
                 return "备份文件包含使用信用卡的周期规则"
             }

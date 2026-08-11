@@ -150,6 +150,9 @@ class AccountingFlowsTest {
         composeRule.onNodeWithText("保存买入").performClick()
 
         openTransactionsAndAssertNote(note)
+        val directionMatcher = hasText("投资 银行卡 → 基金", substring = true)
+        composeRule.onNodeWithTag("transaction-list").performScrollToNode(directionMatcher)
+        composeRule.onNode(directionMatcher).assertIsDisplayed()
     }
 
     @Test

@@ -71,6 +71,25 @@ class AccountingFlowsTest {
     }
 
     @Test
+    fun archivedAccountRemainsVisibleWithItsBalance() {
+        val accountName = unique("UI测试归档账户")
+
+        composeRule.onNodeWithText("账户").performClick()
+        composeRule.onNodeWithText("新增账户").performClick()
+        composeRule.onNodeWithTag("account-name").performTextInput(accountName)
+        composeRule.onNodeWithTag("account-balance").performTextInput("12.34")
+        composeRule.onNodeWithText("保存账户").performClick()
+
+        composeRule.onNodeWithTag("archive-account-$accountName").performScrollTo().performClick()
+
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodes(hasText("$accountName（已归档）")).fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithText("$accountName（已归档）").assertIsDisplayed()
+        composeRule.onNodeWithText("余额 ¥12.34").assertIsDisplayed()
+    }
+
+    @Test
     fun createsRecurringRuleAndShowsGeneratedEntryPrompt() {
         val ruleName = unique("UI测试月度会员")
 
@@ -153,6 +172,26 @@ class AccountingFlowsTest {
         val directionMatcher = hasText("投资 银行卡 → 基金", substring = true)
         composeRule.onNodeWithTag("transaction-list").performScrollToNode(directionMatcher)
         composeRule.onNode(directionMatcher).assertIsDisplayed()
+    }
+
+    @Test
+    fun archivedInvestmentRemainsVisibleWithItsValue() {
+        val investmentName = unique("UI测试归档投资")
+
+        composeRule.onNodeWithText("投资").performClick()
+        composeRule.onNodeWithText("新增投资资产").performClick()
+        composeRule.onNodeWithTag("investment-name").performTextInput(investmentName)
+        composeRule.onNodeWithTag("investment-principal").performTextInput("10.00")
+        composeRule.onNodeWithTag("investment-current-value").performTextInput("12.00")
+        composeRule.onNodeWithText("保存资产").performClick()
+
+        composeRule.onNodeWithTag("archive-investment-$investmentName").performScrollTo().performClick()
+
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            composeRule.onAllNodes(hasText("$investmentName（已归档）")).fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithText("$investmentName（已归档）").assertIsDisplayed()
+        composeRule.onNodeWithText("本金 ¥10.00 / 市值 ¥12.00 / 浮盈浮亏 ¥2.00").assertIsDisplayed()
     }
 
     @Test

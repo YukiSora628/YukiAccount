@@ -184,14 +184,14 @@ fun YukiAccountApp(viewModel: AppViewModel = viewModel()) {
                 padding = padding,
             )
             AppTab.ACCOUNTS -> AccountListScreen(
-                accounts = state.accounts,
+                accounts = state.allAccounts,
                 transactions = state.transactions,
                 padding = padding,
                 onCreateAccount = { dialog = EntryDialog.ACCOUNT },
                 onArchiveAccount = viewModel::archiveAccount,
             )
             AppTab.INVESTMENTS -> InvestmentListScreen(
-                investments = state.investments,
+                investments = state.allInvestments,
                 valuations = state.valuations,
                 padding = padding,
                 onCreateInvestment = { dialog = EntryDialog.INVESTMENT_ASSET },
@@ -618,6 +618,10 @@ private fun AccountListScreen(
     onArchiveAccount: (Account) -> Unit,
 ) {
     var selectedAccount by remember(accounts) { mutableStateOf<Account?>(null) }
+    val activeAccounts = accounts.filterNot { it.isArchived }
+    val archivedAccounts = accounts.filter { it.isArchived }
+    val orderedAccounts = activeAccounts + archivedAccounts
+    val firstArchivedAccountId = archivedAccounts.firstOrNull()?.id
     val accountTransactions = selectedAccount?.let { account ->
         TransactionFilter.filter(transactions, accountId = account.id)
     }.orEmpty()
@@ -637,7 +641,16 @@ private fun AccountListScreen(
                 Text("新增账户")
             }
         }
-        accounts.forEach { account ->
+        orderedAccounts.forEach { account ->
+            if (account.id == firstArchivedAccountId) {
+                item {
+                    Text(
+                        "已归档账户",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+            }
             item {
                 AccountCard(
                     account = account,
@@ -685,7 +698,11 @@ private fun AccountCard(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text(account.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text(
+                archiveAwareName(account.name, account.isArchived),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
             Text(
                 if (account.type == AccountType.CREDIT_CARD) {
                     "未还负债 ${account.balance.formatCurrency()}"
@@ -708,8 +725,15 @@ private fun AccountCard(
             Button(onClick = onShowTransactions, modifier = Modifier.fillMaxWidth()) {
                 Text(if (selected) "收起账户流水" else "查看账户流水")
             }
-            Button(onClick = onArchiveAccount, modifier = Modifier.fillMaxWidth()) {
-                Text("归档账户")
+            if (!account.isArchived) {
+                Button(
+                    onClick = onArchiveAccount,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("archive-account-${account.name}"),
+                ) {
+                    Text("归档账户")
+                }
             }
         }
     }
@@ -738,6 +762,10 @@ private fun InvestmentListScreen(
     onArchiveInvestment: (InvestmentAsset) -> Unit,
 ) {
     var expandedInvestmentIds by remember(investments) { mutableStateOf(emptySet<String>()) }
+    val activeInvestments = investments.filterNot { it.isArchived }
+    val archivedInvestments = investments.filter { it.isArchived }
+    val orderedInvestments = activeInvestments + archivedInvestments
+    val firstArchivedInvestmentId = archivedInvestments.firstOrNull()?.id
 
     LazyColumn(
         modifier = Modifier
@@ -759,7 +787,16 @@ private fun InvestmentListScreen(
                 Text("更新市值")
             }
         }
-        investments.forEach { investment ->
+        orderedInvestments.forEach { investment ->
+            if (investment.id == firstArchivedInvestmentId) {
+                item {
+                    Text(
+                        "已归档投资",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+            }
             val investmentValuations = valuations.filter { it.investmentAssetId == investment.id }
             val historyExpanded = investment.id in expandedInvestmentIds
             item(key = investment.id) {
@@ -769,7 +806,11 @@ private fun InvestmentListScreen(
                         modifier = Modifier.padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        Text(investment.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                        Text(
+                            archiveAwareName(investment.name, investment.isArchived),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                        )
                         Text(
                             "本金 ${investment.principal.formatCurrency()} / 市值 ${investment.currentValue.formatCurrency()} / 浮盈浮亏 ${gainLoss.formatCurrency()}",
                             style = MaterialTheme.typography.bodyMedium,
@@ -799,8 +840,15 @@ private fun InvestmentListScreen(
                                 }
                             )
                         }
-                        Button(onClick = { onArchiveInvestment(investment) }, modifier = Modifier.fillMaxWidth()) {
-                            Text("归档投资资产")
+                        if (!investment.isArchived) {
+                            Button(
+                                onClick = { onArchiveInvestment(investment) },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("archive-investment-${investment.name}"),
+                            ) {
+                                Text("归档投资资产")
+                            }
                         }
                     }
                 }
@@ -1131,10 +1179,25 @@ private fun InvestmentAssetDialog(
         title = { Text("新增投资资产") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("资产名称") })
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("资产名称") },
+                    modifier = Modifier.testTag("investment-name"),
+                )
                 InvestmentTypeSelector(selected = type, onSelected = { type = it })
-                OutlinedTextField(value = principalText, onValueChange = { principalText = it }, label = { Text("累计本金") })
-                OutlinedTextField(value = currentValueText, onValueChange = { currentValueText = it }, label = { Text("当前市值") })
+                OutlinedTextField(
+                    value = principalText,
+                    onValueChange = { principalText = it },
+                    label = { Text("累计本金") },
+                    modifier = Modifier.testTag("investment-principal"),
+                )
+                OutlinedTextField(
+                    value = currentValueText,
+                    onValueChange = { currentValueText = it },
+                    label = { Text("当前市值") },
+                    modifier = Modifier.testTag("investment-current-value"),
+                )
             }
         },
         confirmButton = {
@@ -1179,12 +1242,18 @@ private fun AccountDialog(
         title = { Text("新增账户") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("账户名称") })
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("账户名称") },
+                    modifier = Modifier.testTag("account-name"),
+                )
                 AccountTypeSelector(selected = type, onSelected = { type = it })
                 OutlinedTextField(
                     value = balanceText,
                     onValueChange = { balanceText = it },
                     label = { Text(if (type == AccountType.CREDIT_CARD) "当前未还" else "初始余额") },
+                    modifier = Modifier.testTag("account-balance"),
                 )
                 if (type == AccountType.CREDIT_CARD) {
                     OutlinedTextField(
@@ -1934,6 +2003,9 @@ internal fun transactionAccountSummary(
         TransactionType.INVESTMENT_BUY -> "投资 $source → ${investmentName(transaction.investmentAssetId)}"
     }
 }
+
+internal fun archiveAwareName(name: String, isArchived: Boolean): String =
+    if (isArchived) "$name（已归档）" else name
 
 private fun TransactionType.label(): String =
     when (this) {

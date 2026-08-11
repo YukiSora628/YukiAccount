@@ -56,6 +56,12 @@ class TransactionPresentationTest {
         )
     }
 
+    @Test
+    fun archivedItemsAreClearlyMarkedWithoutChangingActiveNames() {
+        assertEquals("银行卡", archiveAwareName("银行卡", isArchived = false))
+        assertEquals("银行卡（已归档）", archiveAwareName("银行卡", isArchived = true))
+    }
+
     private fun summary(
         type: TransactionType,
         targetAccountId: String? = null,
